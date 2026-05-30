@@ -581,7 +581,7 @@ function renderNode(parent,nodes){
         if(ch){
           var c=ch.classList.contains('collapsed');
           ch.classList.toggle('collapsed');
-          if(c){ch.style.maxHeight=ch.scrollHeight+'px';}
+          if(c){ch.style.removeProperty('max-height');}
           else{ch.style.maxHeight='0';}
           this.textContent=c?'▾':'▸';
         }
@@ -630,7 +630,7 @@ function renderNode(parent,nodes){
       div.appendChild(chDiv);
       if(n.depth===1){
         chDiv.classList.remove('collapsed');
-        setTimeout(function(){chDiv.style.maxHeight=chDiv.scrollHeight+'px';},20);
+        setTimeout(function(){chDiv.style.removeProperty('max-height');},20);
       }
       if(n.depth===2){
         chDiv.classList.add('collapsed');
@@ -648,37 +648,35 @@ function renderNode(parent,nodes){
   // 根节点默认展开
   setTimeout(function(){
     var rc=document.querySelector('.l0>.children');
-    if(rc){rc.classList.remove('collapsed');rc.style.maxHeight=rc.scrollHeight+'px';}
+    if(rc){rc.classList.remove('collapsed');rc.style.removeProperty('max-height');}
   },30);
 })();
 
 // 一键展开/收起
 function expandTo(maxDepth){
   var nodes=document.querySelectorAll('.node');
-  // 先全部收起
   if(maxDepth===99){
-    nodes.forEach(nd=>{
-      var ch=nd.querySelector(':scope>.children');
-      if(!ch)return;
-      ch.classList.add('collapsed');
-      ch.style.maxHeight='0';
-      var t=nd.querySelector(':scope>.line>.toggle');
-      if(t)t.textContent='▸';
+    nodes.forEach(function(nd){
+      var ch=nd.getElementsByClassName('children');
+      if(!ch.length)return;
+      ch[0].classList.add('collapsed');
+      ch[0].style.maxHeight='0';
+      var t=nd.getElementsByClassName('toggle');
+      if(t.length)t[0].textContent='▸';
     });
     return;
   }
-  // 从外层向内层逐级展开
   function doLevel(d){
     if(d>=maxDepth)return;
-    nodes.forEach(nd=>{
+    nodes.forEach(function(nd){
       var m=nd.className.match(/l(\d+)/);
       if(!m||parseInt(m[1])!==d)return;
-      var ch=nd.querySelector(':scope>.children');
-      if(!ch)return;
-      ch.classList.remove('collapsed');
-      ch.style.maxHeight='none';
-      var t=nd.querySelector(':scope>.line>.toggle');
-      if(t)t.textContent='▾';
+      var ch=nd.getElementsByClassName('children');
+      if(!ch.length)return;
+      ch[0].classList.remove('collapsed');
+      ch[0].style.removeProperty('max-height');
+      var t=nd.getElementsByClassName('toggle');
+      if(t.length)t[0].textContent='▾';
     });
     setTimeout(function(){doLevel(d+1);},30);
   }
