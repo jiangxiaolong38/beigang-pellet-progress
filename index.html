@@ -654,23 +654,35 @@ function renderNode(parent,nodes){
 
 // 一键展开/收起
 function expandTo(maxDepth){
-  document.querySelectorAll('.node').forEach(nd=>{
-    var m=nd.className.match(/l(\d+)/);
-    if(!m)return;
-    var depth=parseInt(m[1]);
-    var ch=nd.querySelector(':scope>.children');
-    if(!ch)return;
-    var toggle=nd.querySelector(':scope>.line>.toggle');
-    if(depth >= maxDepth || maxDepth===99){
+  var nodes=document.querySelectorAll('.node');
+  // 先全部收起
+  if(maxDepth===99){
+    nodes.forEach(nd=>{
+      var ch=nd.querySelector(':scope>.children');
+      if(!ch)return;
       ch.classList.add('collapsed');
       ch.style.maxHeight='0';
-      if(toggle)toggle.textContent='▸';
-    }else{
+      var t=nd.querySelector(':scope>.line>.toggle');
+      if(t)t.textContent='▸';
+    });
+    return;
+  }
+  // 从外层向内层逐级展开
+  function doLevel(d){
+    if(d>=maxDepth)return;
+    nodes.forEach(nd=>{
+      var m=nd.className.match(/l(\d+)/);
+      if(!m||parseInt(m[1])!==d)return;
+      var ch=nd.querySelector(':scope>.children');
+      if(!ch)return;
       ch.classList.remove('collapsed');
-      ch.style.maxHeight=ch.scrollHeight+'px';
-      if(toggle)toggle.textContent='▾';
-    }
-  });
+      ch.style.maxHeight='none';
+      var t=nd.querySelector(':scope>.line>.toggle');
+      if(t)t.textContent='▾';
+    });
+    setTimeout(function(){doLevel(d+1);},30);
+  }
+  doLevel(0);
 }
 </script>
 
