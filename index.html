@@ -666,6 +666,21 @@ function expandTo(maxDepth){
     });
     return;
   }
+  // 先全部收起超出 maxDepth 的层
+  nodes.forEach(function(nd){
+    var m=nd.className.match(/l(\d+)/);
+    if(!m)return;
+    var d=parseInt(m[1]);
+    if(d>=maxDepth){
+      var ch=nd.getElementsByClassName('children');
+      if(!ch.length)return;
+      ch[0].classList.add('collapsed');
+      ch[0].style.maxHeight='0';
+      var t=nd.getElementsByClassName('toggle');
+      if(t.length)t[0].textContent='▸';
+    }
+  });
+  // 然后逐级展开
   function doLevel(d){
     if(d>=maxDepth)return;
     nodes.forEach(function(nd){
@@ -678,7 +693,7 @@ function expandTo(maxDepth){
       var t=nd.getElementsByClassName('toggle');
       if(t.length)t[0].textContent='▾';
     });
-    setTimeout(function(){doLevel(d+1);},30);
+    setTimeout(function(){doLevel(d+1);},40);
   }
   doLevel(0);
 }
