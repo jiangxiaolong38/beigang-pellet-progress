@@ -3,49 +3,532 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>北钢球团 · WBS 目录树</title>
+<title>北钢球团项目 · 进度看板</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:linear-gradient(180deg,#0c0c1d,#151530 30%,#0f172a);color:#e2e8f0;min-height:100vh;padding:24px}
-h2{text-align:center;font-weight:700;margin-bottom:4px}
-.sub{text-align:center;color:#64748b;font-size:12px;margin-bottom:20px}
+body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:linear-gradient(180deg,#0c0c1d 0%,#151530 30%,#0f172a 100%);color:#e2e8f0;min-height:100vh;padding:20px}
+
+/* Tab navigation */
+.tab-nav{display:flex;justify-content:center;gap:4px;margin-bottom:20px}
+.tab-btn{padding:10px 28px;border-radius:10px 10px 0 0;border:1px solid transparent;background:rgba(30,41,59,.5);color:#64748b;cursor:pointer;font-size:14px;font-weight:600;transition:all .25s}
+.tab-btn:hover{color:#94a3b8;background:rgba(30,41,59,.7)}
+.tab-btn.active{background:rgba(30,41,59,.9);color:#f1f5f9;border-color:rgba(148,163,184,.15);border-bottom-color:rgba(30,41,59,.9);box-shadow:0 -2px 12px rgba(0,0,0,.2)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+h2{font-size:22px;font-weight:700;text-align:center;margin-bottom:2px}
+.sub{font-size:12px;text-align:center;color:#64748b;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(480px,1fr));gap:16px;max-width:1500px;margin:0 auto}
+.card{background:rgba(30,41,59,.82);backdrop-filter:blur(18px);border:1px solid rgba(148,163,184,.1);border-radius:16px;padding:18px 16px 12px}
+.card .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.card .title{font-size:14px;font-weight:600}
+.card .badge{font-size:11px;padding:2px 10px;border-radius:10px;background:rgba(255,255,255,.06);color:#94a3b8}
+.chart-wrap{position:relative;width:100%;aspect-ratio:2/1;min-height:200px}
+canvas{width:100%!important;height:100%!important}
+.card-total{border-color:rgba(249,115,22,.3);border-width:2px}
+.card-total .title{color:#f97316;font-size:16px}
+
+/* WBS tree styles */
 .tree-wrap{max-width:1200px;margin:0 auto;background:rgba(30,41,59,.85);border-radius:16px;padding:24px 20px;border:1px solid rgba(148,163,184,.12)}
 .node{margin-left:0}
-.toggle{cursor:pointer;display:inline-block;width:16px;text-align:center;user-select:none;color:#64748b;margin-right:2px;font-size:11px;transition:.2s}
-.toggle:hover{color:#e2e8f0}
-.line{display:flex;align-items:center;padding:4px 6px;border-radius:4px;transition:background .15s;gap:6px}
-.line:hover{background:rgba(255,255,255,.03)}
-.code{font-size:11px;color:#64748b;min-width:64px;font-family:monospace}
-.prog-wrap{width:80px;height:8px;background:rgba(148,163,184,.1);border-radius:4px;overflow:hidden;flex-shrink:0}
-.prog-fill{height:100%;border-radius:4px;transition:width .4s}
-.prog-text{font-size:10px;color:#94a3b8;min-width:36px;text-align:right;flex-shrink:0}
-.name{font-size:13px;flex:1;min-width:0}
-.weight-badge{font-size:11px;padding:1px 8px;border-radius:8px;white-space:nowrap;font-weight:600}
-.l0>.line>.code{color:#fbbf24;font-size:14px;font-weight:700}
-.l0>.line>.name{font-size:17px;font-weight:700;color:#fff}
-.l0>.line>.weight-badge{background:rgba(251,191,36,.15);color:#fbbf24;font-size:14px}
-.l0>.line>.prog-text{font-size:12px;font-weight:700}
-.l0>.line>.prog-wrap{width:120px;height:10px}
-.l1>.line>.code{color:#f97316;font-size:12px;font-weight:600}
-.l1>.line>.name{font-size:15px;font-weight:600;color:#f1f5f9}
-.l1>.line>.weight-badge{background:rgba(249,115,22,.15);color:#f97316;font-size:13px}
-.l2>.line>.code{color:#38bdf8;font-size:11px}
-.l2>.line>.name{font-size:13px;color:#e2e8f0}
-.l2>.line>.weight-badge{background:rgba(56,189,248,.1);color:#38bdf8}
-.l3>.line>.code{color:#94a3b8;font-size:10px}
-.l3>.line>.name{font-size:12px;color:#cbd5e1}
-.l3>.line>.weight-badge{background:rgba(148,163,184,.08);color:#94a3b8;font-size:10px}
+.node .toggle{cursor:pointer;display:inline-block;width:16px;text-align:center;user-select:none;color:#64748b;margin-right:2px;font-size:11px;transition:.2s}
+.node .toggle:hover{color:#e2e8f0}
+.node .line{display:flex;align-items:center;padding:4px 6px;border-radius:4px;transition:background .15s;gap:6px}
+.node .line:hover{background:rgba(255,255,255,.03)}
+.node .code{font-size:11px;color:#64748b;min-width:64px;font-family:monospace}
+.node .prog-wrap{width:80px;height:8px;background:rgba(148,163,184,.1);border-radius:4px;overflow:hidden;flex-shrink:0}
+.node .prog-fill{height:100%;border-radius:4px;transition:width .4s}
+.node .prog-text{font-size:10px;color:#94a3b8;min-width:36px;text-align:right;flex-shrink:0}
+.node .name{font-size:13px;flex:1;min-width:0}
+.node .weight-badge{font-size:11px;padding:1px 8px;border-radius:8px;white-space:nowrap;font-weight:600}
+.node.l0>.line>.code{color:#fbbf24;font-size:14px;font-weight:700}
+.node.l0>.line>.name{font-size:17px;font-weight:700;color:#fff}
+.node.l0>.line>.weight-badge{background:rgba(251,191,36,.15);color:#fbbf24;font-size:14px}
+.node.l0>.line>.prog-text{font-size:12px;font-weight:700}
+.node.l0>.line>.prog-wrap{width:120px;height:10px}
+.node.l1>.line>.code{color:#f97316;font-size:12px;font-weight:600}
+.node.l1>.line>.name{font-size:15px;font-weight:600;color:#f1f5f9}
+.node.l1>.line>.weight-badge{background:rgba(249,115,22,.15);color:#f97316;font-size:13px}
+.node.l2>.line>.code{color:#38bdf8;font-size:11px}
+.node.l2>.line>.name{font-size:13px;color:#e2e8f0}
+.node.l2>.line>.weight-badge{background:rgba(56,189,248,.1);color:#38bdf8}
+.node.l3>.line>.code{color:#94a3b8;font-size:10px}
+.node.l3>.line>.name{font-size:12px;color:#cbd5e1}
+.node.l3>.line>.weight-badge{background:rgba(148,163,184,.08);color:#94a3b8;font-size:10px}
 .children{margin-left:20px;overflow:hidden;transition:max-height .4s}
 .children.collapsed{max-height:0!important}
 .count-badge{font-size:10px;margin-left:4px;color:#475569}
 .legend{display:flex;gap:20px;justify-content:center;margin-bottom:16px;font-size:11px;color:#64748b;flex-wrap:wrap}
 .legend span{display:flex;align-items:center;gap:5px}
 .legend .dot{width:8px;height:8px;border-radius:2px}
+
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:0% 0}}
 </style>
 </head>
 <body>
-<h2>北钢球团项目 · WBS 目录树</h2>
-<div class="sub">剩余工作周进度计划表 · B列大纲编号 + H/I/J/K 权重 + Q列进度值 · 共 265 项</div>
+<h2>北钢球团项目 · 进度看板</h2>
+<div class="sub">设备与电仪专业安装 · 2026/5/29 → 2027/1/1 · GitHub Pages 在线版</div>
+
+<!-- Tab buttons -->
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('dash')">📊 图表看板</button>
+  <button class="tab-btn" onclick="switchTab('wbs')">🌲 WBS 目录树</button>
+</div>
+
+<!-- Tab 1: Dashboard -->
+<div class="tab-content active" id="tab-dash">
+
+
+
+<!-- 总体进度条-炫酷版 -->
+<div class="card" style="max-width:900px;margin:0 auto 18px;padding:24px 28px 20px;border:1px solid rgba(249,115,22,.25);background:linear-gradient(135deg,rgba(30,41,59,.92) 0%,rgba(15,23,42,.95) 100%);box-shadow:0 0 40px rgba(249,115,22,.08),0 8px 32px rgba(0,0,0,.3);position:relative;overflow:hidden;">
+  <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:radial-gradient(circle,rgba(249,115,22,.12) 0%,transparent 70%);pointer-events:none;"></div>
+  <div style="display:flex;align-items:center;gap:28px;flex-wrap:wrap;">
+    <!-- 左侧环形进度条 -->
+    <div style="flex-shrink:0;position:relative;width:100px;height:100px;">
+      <svg viewBox="0 0 120 120" style="width:100%;height:100%;">
+        <defs>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="2.5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#f97316"/>
+            <stop offset="100%" stop-color="#fbbf24"/>
+          </linearGradient>
+        </defs>
+        <circle cx="60" cy="60" r="48" fill="none" stroke="rgba(148,163,184,.12)" stroke-width="10"/>
+        <circle cx="60" cy="60" r="48" fill="none" stroke="url(#ringGrad)" stroke-width="10"
+          stroke-dasharray="301.6" stroke-dashoffset="177.3"
+          stroke-linecap="round" transform="rotate(-90 60 60)" filter="url(#glow)"/>
+        <text x="60" y="57" text-anchor="middle" fill="#f97316" font-size="22" font-weight="800" font-family="Microsoft YaHei,sans-serif">41</text>
+        <text x="60" y="77" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="500">%</text>
+      </svg>
+    </div>
+    <!-- 中间信息 -->
+    <div style="flex:1;min-width:250px;">
+      <div style="font-size:14px;font-weight:600;color:#e2e8f0;margin-bottom:10px;">北钢球团设备、电仪专业安装进度</div>
+      <!-- 渐变进度条 -->
+      <div style="position:relative;height:28px;background:rgba(148,163,184,.08);border-radius:14px;overflow:hidden;">
+        <div style="position:absolute;left:0;top:0;height:100%;width:41.24%;background:linear-gradient(90deg,#f97316,#fbbf24,#f97316);background-size:200% 100%;border-radius:14px;animation:shimmer 2s ease-in-out infinite;box-shadow:0 0 20px rgba(249,115,22,.3);"></div>
+        <div style="position:absolute;left:0;top:0;height:100%;width:41.24%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);background-size:200% 100%;border-radius:14px;animation:shimmer 1.5s linear infinite;"></div>
+        <!-- 刻度 -->
+        <div style="position:absolute;left:25%;top:0;height:100%;width:1px;background:rgba(255,255,255,.1);"></div>
+        <div style="position:absolute;left:50%;top:0;height:100%;width:1px;background:rgba(255,255,255,.15);"></div>
+        <div style="position:absolute;left:75%;top:0;height:100%;width:1px;background:rgba(255,255,255,.1);"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:#64748b;">
+        <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+      </div>
+    </div>
+    <!-- 右侧数字 -->
+    <div style="flex-shrink:0;text-align:center;">
+      <div style="font-size:42px;font-weight:800;background:linear-gradient(135deg,#f97316,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;">41.24<span style="font-size:20px;">%</span></div>
+      <div style="font-size:11px;color:#64748b;margin-top:4px;">当前安装进度</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:2px;">剩余 <span style="color:#fbbf24;font-weight:600;">58.76%</span></div>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:0% 0}}
+</style>
+
+<!-- 总体合计 S 曲线（页面最顶部） -->
+<div class="card card-total" style="max-width:1200px;margin:0 auto 20px;">
+  <div class="head">
+    <span class="title" style="color:#f97316;font-size:18px;">📈 总体合计 · 累计S曲线</span>
+    <span class="badge">权重 100%</span>
+  </div>
+  <div class="chart-wrap" style="min-height:320px;"><canvas id="cTotalTop"></canvas></div>
+</div>
+
+<!-- 顶部双图：条形图 + 饼图 -->
+<div style="max-width:1200px;margin:0 auto 20px;display:flex;gap:16px;flex-wrap:wrap;">
+<div class="card" style="flex:3;min-width:420px;border-color:rgba(56,189,248,.25);">
+  <div class="head"><span class="title" style="color:#38bdf8;font-size:16px;">📊 各子系统当前进度值</span></div>
+  <div class="chart-wrap" style="min-height:340px;"><canvas id="barChart"></canvas></div>
+</div>
+<div class="card" style="flex:2;min-width:280px;">
+  <div class="head"><span class="title" style="color:#a78bfa;font-size:16px;">🍩 第一层权重分布</span></div>
+  <div class="chart-wrap" style="min-height:340px;"><canvas id="pieChart"></canvas></div>
+</div>
+</div>
+
+<!-- 100焙烧 二级分解 -->
+<div style="max-width:1200px;margin:0 auto 20px;display:flex;gap:16px;flex-wrap:wrap;">
+<div class="card" style="flex:3;min-width:420px;border-color:rgba(107,203,119,.3);">
+  <div class="head"><span class="title" style="color:#6bcb77;font-size:16px;">🔬 100 焙烧系统 · 二级分解进度</span><span class="badge">总权重 58.40% | 当前 46.88%</span></div>
+  <div class="chart-wrap" style="min-height:380px;"><canvas id="roastBar"></canvas></div>
+</div>
+<div class="card" style="flex:2;min-width:280px;">
+  <div class="head"><span class="title" style="color:#6bcb77;font-size:16px;">🍩 焙烧系统权重分布</span></div>
+  <div class="chart-wrap" style="min-height:380px;"><canvas id="roastPie"></canvas></div>
+</div>
+</div>
+
+<!-- 1101焙烧室 第三层分解 -->
+<div style="max-width:1200px;margin:0 auto 20px;display:flex;gap:16px;flex-wrap:wrap;">
+<div class="card" style="flex:2;min-width:550px;border-color:rgba(255,107,107,.25);">
+  <div class="head"><span class="title" style="color:#ff6b6b;font-size:15px;">🔍 1101 焙烧室 · 第三层分解进度</span><span class="badge">权重 27.40% | 当前 68.07%</span></div>
+  <div class="chart-wrap" style="min-height:460px;"><canvas id="roast3Bar"></canvas></div>
+</div>
+<div class="card" style="flex:1;min-width:280px;">
+  <div class="head"><span class="title" style="color:#ff6b6b;font-size:15px;">🍩 1101焙烧室权重</span></div>
+  <div class="chart-wrap" style="min-height:460px;"><canvas id="roast3Pie"></canvas></div>
+</div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+const labels = [
+  '5/29','6/5','6/12','6/19','6/26','7/3','7/10','7/17','7/24','7/31',
+  '8/7','8/14','8/21','8/28','9/4','9/11','9/18','9/25','10/2','10/9',
+  '10/16','10/23','10/30','11/6','11/13','11/20','11/27','12/4','12/11','12/18',
+  '12/25','1/1'
+];
+
+const weekly = {
+  total:[41.24,5.34,8.68,7.20,6.45,5.87,5.07,3.54,2.98,2.66,1.45,1.37,1.31,1.29,0.70,0.44,0.38,0.37,0.35,0.33,0.33,0.33,0.33,0.31,0.31,0.31,0.31,0.24,0.23,0.23,0.02,0.01],
+  s300: [37.17,6.31,10.39,7.55,7.00,6.28,5.26,4.91,4.11,3.96,1.79,1.67,1.58,1.58,0.45,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  s200: [54.71,7.56,12.30,9.67,6.32,4.57,3.63,0.55,0.41,0.27,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  s100: [46.88,3.83,6.42,5.40,4.77,4.30,3.88,3.57,2.92,2.50,1.59,1.58,1.56,1.53,1.00,0.75,0.65,0.63,0.61,0.57,0.57,0.57,0.57,0.54,0.54,0.54,0.54,0.41,0.39,0.39,0.03,0.01],
+  s400: [40.75,15.66,19.56,13.95,7.61,2.47,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  s500: [20.87,10.52,12.65,9.42,8.50,7.69,5.45,4.21,4.21,4.21,4.05,3.03,2.27,2.27,0.65,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  s600: [34.28,10.09,13.39,11.72,11.72,10.98,7.82,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  s000: [16.45,7.89,13.81,13.81,13.81,13.81,12.26,2.98,2.75,2.45,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+};
+
+// 累计计算，达到100%后截断
+function cumUntil100(arr){
+  let s=0, result=[];
+  for(let v of arr){
+    s+=v;
+    result.push(+s.toFixed(2));
+    if(s>=99.99) break;
+  }
+  return result;
+}
+const d={}; for(const k in weekly) d[k]=cumUntil100(weekly[k]);
+
+const cards = [
+  {key:'s300', title:'300 原料处理系统',      color:'#ff6b6b',weight:19.00},
+  {key:'s200', title:'200 造球系统',          color:'#ffd93d',weight:7.00},
+  {key:'s100', title:'100 焙烧系统',          color:'#6bcb77',weight:58.40},
+  {key:'s400', title:'400 成品系统',          color:'#4d96ff',weight:0.06},
+  {key:'s500', title:'500 添加剂碾磨系统',     color:'#c084fc',weight:4.45},
+  {key:'s600', title:'600 公用系统',          color:'#fb923c',weight:1.09},
+  {key:'s000', title:'000 总体（外网）',      color:'#22d3ee',weight:10.00},
+];
+
+// ── 横向条形图：当前进度 ──
+const bar = new Chart(document.getElementById('barChart'),{
+  type:'bar',
+  data:{
+    labels: ['300 原料处理','200 造球','100 焙烧','400 成品','500 添加剂','600 公用','000 总体/外网'],
+    datasets:[{
+      label:'当前进度',
+      data:[37.17,54.71,46.88,40.75,20.87,34.28,16.45],
+      backgroundColor: ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c084fc','#fb923c','#22d3ee'].map(c=>c+'cc'),
+      borderColor:     ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c084fc','#fb923c','#22d3ee'],
+      borderWidth: 1.5,
+      borderRadius: 6,
+      borderSkipped: false,
+    },{
+      label:'剩余',
+      data:[62.83,45.29,53.12,59.25,79.13,65.72,83.55],
+      backgroundColor: 'rgba(148,163,184,.12)',
+      borderColor: 'rgba(148,163,184,.25)',
+      borderWidth: 1.5,
+      borderRadius: 6,
+      borderSkipped: false,
+    }]
+  },
+  options:{
+    indexAxis:'y',
+    responsive:true, maintainAspectRatio:false,
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.x+'%'}}
+    },
+    scales:{
+      x:{stacked:true, min:0,max:100,
+         ticks:{color:'#94a3b8',font:{size:10},callback:v=>v+'%'},
+         grid:{color:'rgba(148,163,184,.08)'}},
+      y:{stacked:true,
+         ticks:{color:'#cbd5e1',font:{size:11}},
+         grid:{display:false}}
+    }
+  }
+});
+
+// ── 环形图：权重分布 ──
+new Chart(document.getElementById('pieChart'),{
+  type:'doughnut',
+  data:{
+    labels: ['300 原料处理(19%)','100 焙烧(58.4%)','000 总体/外网(10%)','200 造球(7%)','500 添加剂(4.45%)','600 公用(1.09%)','400 成品(0.06%)'],
+    datasets:[{
+      data: [19,58.4,10,7,4.45,1.09,0.06],
+      backgroundColor: ['#ff6b6b','#6bcb77','#22d3ee','#ffd93d','#c084fc','#fb923c','#4d96ff'].map(c=>c+'dd'),
+      borderColor: 'rgba(30,41,59,.9)',
+      borderWidth: 3,
+      hoverBorderColor: '#fff',
+      hoverBorderWidth: 2,
+    }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    cutout:'55%',
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:c=>c.label.split('(')[0]+': '+c.parsed+'%'}}
+    }
+  }
+});
+
+// ── 100焙烧 二级分解 ──
+const roastSubs = [
+  {name:'1101 焙烧室',         w:27.40, done:68.07},
+  {name:'2101 焙烧室',         w:27.40, done:36.69},
+  {name:'1102 工艺风机系统',    w:3.00,  done:38.46},
+  {name:'2102 工艺风机系统',    w:3.00,  done:5.44},
+  {name:'103 筛分室',          w:2.65,  done:57.24},
+  {name:'104 耐材',            w:10.27, done:8.87},
+  {name:'122 脱硫电气系统',     w:1.71,  done:19.53},
+  {name:'123 筛分电气室',       w:0.60,  done:0.00},
+  {name:'131 焙烧机尾/筛分除尘', w:0.51,  done:7.32},
+  {name:'132 铺底料系统除尘',    w:0.51,  done:0.00},
+  {name:'151 脱硫系统',         w:22.95, done:61.27},
+];
+const rLabels = roastSubs.map(s=>s.name);
+const rDone = roastSubs.map(s=>s.done);
+const rRest = roastSubs.map(s=>+(100-s.done).toFixed(1));
+const rW = roastSubs.map(s=>s.w);
+
+new Chart(document.getElementById('roastBar'),{
+  type:'bar',
+  data:{
+    labels: rLabels,
+    datasets:[{
+      label:'已完成',
+      data: rDone,
+      backgroundColor: '#6bcb77cc',
+      borderColor: '#6bcb77',
+      borderWidth: 1.2,
+      borderRadius: 5,
+      borderSkipped: false,
+    },{
+      label:'剩余',
+      data: rRest,
+      backgroundColor: 'rgba(148,163,184,.12)',
+      borderColor: 'rgba(148,163,184,.2)',
+      borderWidth: 1.2,
+      borderRadius: 5,
+      borderSkipped: false,
+    }]
+  },
+  options:{
+    indexAxis:'y',
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.x+'%'}}},
+    scales:{
+      x:{stacked:true,min:0,max:100,ticks:{color:'#94a3b8',font:{size:10},callback:v=>v+'%'},grid:{color:'rgba(148,163,184,.08)'}},
+      y:{stacked:true,ticks:{color:'#cbd5e1',font:{size:10}},grid:{display:false}}
+    }
+  }
+});
+
+new Chart(document.getElementById('roastPie'),{
+  type:'doughnut',
+  data:{
+    labels: rLabels.map((l,i)=>l+'('+rW[i]+'%)'),
+    datasets:[{
+      data: rW,
+      backgroundColor: [
+        '#6bcb77','#4ade80','#a3e635','#34d399','#2dd4bf',
+        '#22d3ee','#38bdf8','#818cf8','#a78bfa','#c084fc','#f472b6'
+      ],
+      borderColor: 'rgba(30,41,59,.9)',
+      borderWidth: 2,
+    }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    cutout:'50%',
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:c=>{const parts=c.label.split('(');return parts[0]+': '+c.parsed+'%';}}}
+    }
+  }
+});
+
+// ── 1101焙烧室 第三层分解 ──
+const roast3Subs = [
+  {name:'布料系统设备',        w:3.17, done:32.80},
+  {name:'带式焙烧机',          w:66.27,done:89.30},
+  {name:'皮带机类设备',        w:7.86, done:6.60},
+  {name:'助燃/密封风机设备',    w:0.51, done:75.00},
+  {name:'起重类设备',          w:1.73, done:48.30},
+  {name:'集中润滑系统设备',     w:3.42, done:5.90},
+  {name:'其他小型设备',        w:1.64, done:64.60},
+  {name:'振动类设备',          w:0.05, done:0.00},
+  {name:'钢结构仓',            w:4.22, done:90.00},
+  {name:'燃气管道系统',        w:3.80, done:15.00},
+  {name:'压缩空气管道系统',     w:1.27, done:5.00},
+  {name:'给排水管道系统',      w:1.01, done:5.00},
+  {name:'除尘管道系统',        w:1.27, done:0.00},
+  {name:'电气仪表系统',        w:3.80, done:10.00},
+];
+const r3Labels = roast3Subs.map(s=>s.name);
+const r3Done = roast3Subs.map(s=>s.done);
+const r3Rest = roast3Subs.map(s=>+(100-s.done).toFixed(1));
+const r3W = roast3Subs.map(s=>s.w);
+
+new Chart(document.getElementById('roast3Bar'),{
+  type:'bar',
+  data:{
+    labels: r3Labels,
+    datasets:[{
+      label:'已完成',
+      data: r3Done,
+      backgroundColor: '#ff6b6bcc',
+      borderColor: '#ff6b6b',
+      borderWidth: 1.2,
+      borderRadius: 5,
+      borderSkipped: false,
+    },{
+      label:'剩余',
+      data: r3Rest,
+      backgroundColor: 'rgba(148,163,184,.12)',
+      borderColor: 'rgba(148,163,184,.2)',
+      borderWidth: 1.2,
+      borderRadius: 5,
+      borderSkipped: false,
+    }]
+  },
+  options:{
+    indexAxis:'y',
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.x+'%'}}},
+    scales:{
+      x:{stacked:true,min:0,max:100,ticks:{color:'#94a3b8',font:{size:9},callback:v=>v+'%'},grid:{color:'rgba(148,163,184,.08)'}},
+      y:{stacked:true,ticks:{color:'#cbd5e1',font:{size:10}},grid:{display:false}}
+    }
+  }
+});
+
+// pie - 用不同绿/红色系区分
+const r3Colors = [
+  '#ff6b6b','#ff8787','#ffa94d','#ffd93d','#ff922b',
+  '#fab005','#fcc419','#e8590c','#e64980','#be4bdb',
+  '#845ef7','#5c7cfa','#339af0','#22b8cf'
+];
+new Chart(document.getElementById('roast3Pie'),{
+  type:'doughnut',
+  data:{
+    labels: r3Labels.map((l,i)=>l+'('+r3W[i]+'%)'),
+    datasets:[{
+      data: r3W,
+      backgroundColor: r3Colors,
+      borderColor: 'rgba(30,41,59,.9)',
+      borderWidth: 2,
+    }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    cutout:'50%',
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:c=>{const p=c.label.split('(');return p[0]+': '+c.parsed+'%';}}}
+    }
+  }
+});
+
+const grid = document.getElementById('grid');
+cards.forEach((c,i)=>{
+  const card=document.createElement('div');
+  card.className='card';
+  card.innerHTML=
+    `<div class="head">
+      <span class="title" style="color:${c.color}">${c.title}</span>
+      <span class="badge">权重 ${c.weight}%</span>
+    </div>
+    <div class="chart-wrap"><canvas id="c${c.key}"></canvas></div>`;
+  grid.appendChild(card);
+});
+
+// ── 置顶：总体合计 S 曲线 ──
+(function(){
+  const td = d['total'];
+  new Chart(document.getElementById('cTotalTop'),{
+    type:'line',
+    data:{
+      labels: labels.slice(0, td.length),
+      datasets:[{
+        data: td,
+        borderColor: '#f97316',
+        backgroundColor: '#f9731618',
+        borderWidth: 3,
+        pointRadius: 2,
+        pointHoverRadius: 6,
+        pointBackgroundColor: '#f97316',
+        tension: 0.35,
+        fill: true,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:l=>'累计: '+l.parsed.y+'%'}}},
+      scales:{
+        x:{ticks:{color:'#64748b',font:{size:9},maxRotation:45},grid:{color:'rgba(148,163,184,.06)'}},
+        y:{min:0,max:100,ticks:{color:'#64748b',font:{size:9},stepSize:20,callback:v=>v+'%'},grid:{color:'rgba(148,163,184,.06)'}}
+      }
+    }
+  });
+})();
+
+// 绘制 — 各自用截断后的 labels + data
+cards.forEach(c=>{
+  const data = d[c.key];
+  const cutLabels = labels.slice(0, data.length);
+  new Chart(document.getElementById('c'+c.key),{
+    type:'line',
+    data:{
+      labels: cutLabels,
+      datasets:[{
+        data: data,
+        borderColor: c.color,
+        backgroundColor: c.color+'18',
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointBackgroundColor: c.color,
+        tension: 0.35,
+        fill: true,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:l=>'累计: '+l.parsed.y+'%'}}},
+      scales:{
+        x:{ticks:{color:'#64748b',font:{size:9},maxRotation:45},grid:{color:'rgba(148,163,184,.06)'}},
+        y:{min:0,max:100,ticks:{color:'#64748b',font:{size:9},stepSize:20,callback:v=>v+'%'},grid:{color:'rgba(148,163,184,.06)'}}
+      }
+    }
+  });
+});
+</script>
+
+</div>
+
+<!-- Tab 2: WBS Tree -->
+<div class="tab-content" id="tab-wbs">
+
+
 <div class="legend">
   <span><span class="dot" style="background:#f97316"></span> L1 子系统 (7)</span>
   <span><span class="dot" style="background:#38bdf8"></span> L2 分区 (43)</span>
@@ -188,6 +671,19 @@ function expandTo(maxDepth){
       if(toggle)toggle.textContent='▾';
     }
   });
+}
+</script>
+
+</div>
+
+<script>
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.querySelector('.tab-btn[onclick*="'+tab+'"]').classList.add('active');
+  document.getElementById('tab-'+tab).classList.add('active');
+  // Redraw charts after switching
+  if(tab==='dash'){ setTimeout(function(){ window.dispatchEvent(new Event('resize')); }, 100); }
 }
 </script>
 </body>
