@@ -77,34 +77,34 @@ h2{text-align:center;font-weight:700;font-size:20px;margin-bottom:2px}
 .gauge svg{width:100%;height:100%}
 .gauge-num{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
 .gauge-pct{font-size:32px;font-weight:800;background:linear-gradient(135deg,#ff6b6b,#ff8787);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1}
-.gauge-sub{font-size:11px;color:#94a3b8}
+.gauge-sub{font-size:11px;color:#cbd5e1}
 .hero-info{flex:1;min-width:260px}
 .hero-info h3{font-size:18px;margin-bottom:12px;color:#ff6b6b}
 .hero-stats{display:flex;gap:24px;flex-wrap:wrap}
 .hero-stat{min-width:80px}
-.hero-stat .n{font-size:24px;font-weight:700;color:#e2e8f0}
+.hero-stat .n{font-size:24px;font-weight:700;color:#f1f5f9}
 .hero-stat .l{font-size:11px;color:#64748b;margin-top:2px}
 
 /* Section cards */
 .section-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(350px,1fr));gap:16px;margin-bottom:20px}
-.sect-card{background:rgba(30,41,59,.75);border-radius:14px;padding:16px 18px;border:1px solid rgba(148,163,184,.08);transition:border-color .2s}
-.sect-card:hover{border-color:rgba(148,163,184,.15)}
+.sect-card{background:rgba(30,41,59,.9);border-radius:14px;padding:16px 18px;border:1px solid rgba(148,163,184,.08);transition:border-color .2s}
+.sect-card:hover{border-color:rgba(148,163,184,.3)}
 .sect-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.sect-title{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+.sect-title{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;color:#e2e8f0}
 .sect-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
 .sect-progress{display:flex;align-items:center;gap:8px}
 .sect-bar{width:100px;height:6px;background:rgba(148,163,184,.1);border-radius:3px;overflow:hidden}
 .sect-bar-fill{height:100%;border-radius:3px}
-.sect-pct{font-size:13px;font-weight:700}
+.sect-pct{font-size:13px;font-weight:700;color:#e2e8f0}
 
 .item-row{display:flex;align-items:center;padding:5px 0;gap:8px;font-size:12px}
 .item-row:not(:last-child){border-bottom:1px solid rgba(148,163,184,.04)}
-.item-name{flex:1;color:#cbd5e1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item-name{flex:1;color:#e2e8f0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .item-mini-bar{width:50px;height:4px;background:rgba(148,163,184,.08);border-radius:2px;overflow:hidden;flex-shrink:0}
 .item-mini-fill{height:100%;border-radius:2px}
-.item-pct{min-width:30px;text-align:right;font-weight:600;font-size:11px}
-.item-w{min-width:36px;text-align:right;font-size:10px;color:#64748b}
-.done-row{opacity:.65}
+.item-pct{min-width:30px;text-align:right;font-weight:600;font-size:11px;color:#e2e8f0}
+.item-w{min-width:36px;text-align:right;font-size:10px;color:#94a3b8}
+.done-row{background:rgba(107,203,119,.04)}
 
 /* Legend bottoms */
 .bottom-legend{display:flex;gap:24px;justify-content:center;font-size:11px;color:#64748b;margin-top:16px}
@@ -806,45 +806,45 @@ function initRoastSections(){
   var sec=document.getElementById('sections');
   if(!sec)return;
 var items=[
-  {code:"3.1.2.1", name:"主传动装置", w:0.51, pct:100, sect:"头部传动"},
-  {code:"3.1.2.2", name:"台车", w:1.53, pct:100, sect:"主体"},
-  {code:"3.1.2.3", name:"落棒密封装置", w:1.53, pct:100, sect:"密封"},
-  {code:"3.1.2.4", name:"铺底铺边装置", w:0.51, pct:85, sect:"布料"},
-  {code:"3.1.2.5", name:"铺底溜槽扇形阀", w:0.13, pct:100, sect:"布料"},
-  {code:"3.1.2.6", name:"铺底料斗扇形阀", w:0.06, pct:0, sect:"布料"},
-  {code:"3.1.2.7", name:"铺边料扇形阀", w:0.08, pct:100, sect:"布料"},
-  {code:"3.1.2.8", name:"事故料斗扇形阀", w:0.08, pct:0, sect:"布料"},
-  {code:"3.1.2.9", name:"布料骨架", w:1.53, pct:30, sect:"布料"},
-  {code:"3.1.2.10", name:"传动骨架", w:2.29, pct:100, sect:"头部传动"},
-  {code:"3.1.2.11", name:"头部弯道装配", w:0.76, pct:100, sect:"头部"},
-  {code:"3.1.2.12", name:"头部星轮装配", w:1.22, pct:100, sect:"头部"},
-  {code:"3.1.2.13", name:"一号灰箱", w:0.19, pct:100, sect:"头部"},
-  {code:"3.1.2.14", name:"二号灰箱", w:0.19, pct:100, sect:"头部"},
-  {code:"3.1.2.15", name:"头部密封罩", w:0.76, pct:0, sect:"密封"},
-  {code:"3.1.2.16", name:"中部骨架", w:15.27, pct:100, sect:"主体"},
-  {code:"3.1.2.17", name:"轨道装配", w:5.73, pct:100, sect:"主体"},
-  {code:"3.1.2.18", name:"风箱装配", w:5.73, pct:100, sect:"主体"},
-  {code:"3.1.2.19", name:"滑道及密封装配", w:0.81, pct:100, sect:"密封"},
-  {code:"3.1.2.20", name:"尾部骨架", w:1.91, pct:100, sect:"尾部"},
-  {code:"3.1.2.21", name:"尾部移动架", w:1.91, pct:100, sect:"尾部"},
-  {code:"3.1.2.22", name:"液压装置", w:0.19, pct:0, sect:"尾部"},
-  {code:"3.1.2.23", name:"尾部弯道", w:1.53, pct:100, sect:"尾部"},
-  {code:"3.1.2.24", name:"尾部星轮装配", w:1.53, pct:100, sect:"尾部"},
-  {code:"3.1.2.25", name:"卸料矿槽", w:1.53, pct:100, sect:"尾部"},
-  {code:"3.1.2.26", name:"卸料扇形阀", w:0.15, pct:100, sect:"尾部"},
-  {code:"3.1.2.27", name:"尾部密封罩", w:0.32, pct:0, sect:"密封"},
-  {code:"3.1.2.28", name:"台车下挠测量装置", w:0.08, pct:0, sect:"尾部"},
-  {code:"3.1.2.29", name:"粘结矿清扫装置", w:0.13, pct:100, sect:"尾部"},
-  {code:"3.1.2.30", name:"平台部分", w:1.53, pct:75, sect:"主体"},
-  {code:"3.1.2.31", name:"炉罩机架", w:1.91, pct:100, sect:"主体"},
-  {code:"3.1.2.32", name:"上罩装配", w:1.53, pct:100, sect:"主体"},
-  {code:"3.1.2.33", name:"侧墙装配", w:3.82, pct:100, sect:"主体"},
-  {code:"3.1.2.34", name:"管道", w:34.37, pct:90, sect:"管道"},
-  {code:"3.1.2.35", name:"鼓干段防尘罩", w:1.02, pct:75, sect:"主体"},
-  {code:"3.1.2.36", name:"集尘斗", w:0.71, pct:0, sect:"管道"},
-  {code:"3.1.2.37", name:"冷却段防尘罩", w:1.02, pct:75, sect:"主体"},
-  {code:"3.1.2.38", name:"托架装配", w:2.86, pct:100, sect:"主体"},
-  {code:"3.1.2.39", name:"烧嘴及调节阀组", w:3.05, pct:0, sect:"管道"},
+  {code:"3.1.2.1", eqp:"1101PT-TG01-MP01", name:"主传动装置", w:0.51, pct:100, sect:"头部传动"},
+  {code:"3.1.2.2", eqp:"1101PT-TG01-PAL01~234", name:"台车", w:1.53, pct:100, sect:"主体"},
+  {code:"3.1.2.3", eqp:"1101PT-TG01-SEL01", name:"落棒密封装置", w:1.53, pct:100, sect:"密封"},
+  {code:"3.1.2.4", eqp:"1101PT-TG01-HL01", name:"铺底铺边装置", w:0.51, pct:85, sect:"布料"},
+  {code:"3.1.2.5", eqp:"1101PT-TG01-QV01~02", name:"铺底溜槽扇形阀", w:0.13, pct:100, sect:"布料"},
+  {code:"3.1.2.6", eqp:"1101PT-TG01-QV03", name:"铺底料斗扇形阀", w:0.06, pct:0, sect:"布料"},
+  {code:"3.1.2.7", eqp:"1101PT-TG01-QV04~05", name:"铺边料扇形阀", w:0.08, pct:100, sect:"布料"},
+  {code:"3.1.2.8", eqp:"1101PT-TG01-QV06", name:"事故料斗扇形阀", w:0.08, pct:0, sect:"布料"},
+  {code:"3.1.2.9", eqp:"1101PT-TG01-FM04", name:"布料骨架", w:1.53, pct:30, sect:"布料"},
+  {code:"3.1.2.10", eqp:"1101PT-TG01-FM01", name:"传动骨架", w:2.29, pct:100, sect:"头部传动"},
+  {code:"3.1.2.11", eqp:"1101PT-TG01-CUR01", name:"头部弯道装配", w:0.76, pct:100, sect:"头部"},
+  {code:"3.1.2.12", eqp:"1101PT-TG01-W01", name:"头部星轮装配", w:1.22, pct:100, sect:"头部"},
+  {code:"3.1.2.13", eqp:"1101PT-TG01-AX01", name:"一号灰箱", w:0.19, pct:100, sect:"头部"},
+  {code:"3.1.2.14", eqp:"1101PT-TG01-AX02", name:"二号灰箱", w:0.19, pct:100, sect:"头部"},
+  {code:"3.1.2.15", eqp:"1101PT-TG01-HH01", name:"头部密封罩", w:0.76, pct:0, sect:"密封"},
+  {code:"3.1.2.16", eqp:"1101PT-TG01-FM02", name:"中部骨架", w:15.27, pct:100, sect:"主体"},
+  {code:"3.1.2.17", eqp:"1101PT-TG01-TR01", name:"轨道装配", w:5.73, pct:100, sect:"主体"},
+  {code:"3.1.2.18", eqp:"1101PT-TG01-WX01", name:"风箱装配", w:5.73, pct:100, sect:"主体"},
+  {code:"3.1.2.19", eqp:"1101PT-TG01-SEL02", name:"滑道及密封装配", w:0.81, pct:100, sect:"密封"},
+  {code:"3.1.2.20", eqp:"1101PT-TG01-FM03", name:"尾部骨架", w:1.91, pct:100, sect:"尾部"},
+  {code:"3.1.2.21", eqp:"1101PT-TG01-FM04", name:"尾部移动架", w:1.91, pct:100, sect:"尾部"},
+  {code:"3.1.2.22", eqp:"1101PT-TG01-FM04-YY", name:"液压装置", w:0.19, pct:0, sect:"尾部"},
+  {code:"3.1.2.23", eqp:"1101PT-TG01-CUR02", name:"尾部弯道", w:1.53, pct:100, sect:"尾部"},
+  {code:"3.1.2.24", eqp:"1101PT-TG01-W02", name:"尾部星轮装配", w:1.53, pct:100, sect:"尾部"},
+  {code:"3.1.2.25", eqp:"1101PT-TG01-DN01", name:"卸料矿槽", w:1.53, pct:100, sect:"尾部"},
+  {code:"3.1.2.26", eqp:"1101PT-TG01-QV-07~08", name:"卸料扇形阀", w:0.15, pct:100, sect:"尾部"},
+  {code:"3.1.2.27", eqp:"1101PT-TG01-HT01", name:"尾部密封罩", w:0.32, pct:0, sect:"密封"},
+  {code:"3.1.2.28", eqp:"1101PT-TG01-DX01", name:"台车下挠测量装置", w:0.08, pct:0, sect:"尾部"},
+  {code:"3.1.2.29", eqp:"1101PT-TG01-DR01", name:"粘结矿清扫装置", w:0.13, pct:100, sect:"尾部"},
+  {code:"3.1.2.30", eqp:"1101PT-TG01-PLA01", name:"平台部分", w:1.53, pct:75, sect:"主体"},
+  {code:"3.1.2.31", eqp:"1101PT-TG01-FM05", name:"炉罩机架", w:1.91, pct:100, sect:"主体"},
+  {code:"3.1.2.32", eqp:"1101PT-TG01-IH01-01", name:"上罩装配", w:1.53, pct:100, sect:"主体"},
+  {code:"3.1.2.33", eqp:"1101PT-TG01-IH01-02", name:"侧墙装配", w:3.82, pct:100, sect:"主体"},
+  {code:"3.1.2.34", eqp:"1101PT-TG01-IH01-03", name:"管道", w:34.37, pct:90, sect:"管道"},
+  {code:"3.1.2.35", eqp:"1101PT-TG01-IH01-04", name:"鼓干段防尘罩", w:1.02, pct:75, sect:"主体"},
+  {code:"3.1.2.36", eqp:"1101PT-TG01-IH01-05", name:"集尘斗", w:0.71, pct:0, sect:"管道"},
+  {code:"3.1.2.37", eqp:"1101PT-TG01-IH01-06", name:"冷却段防尘罩", w:1.02, pct:75, sect:"主体"},
+  {code:"3.1.2.38", eqp:"1101PT-TG01-IH01-07", name:"托架装配", w:2.86, pct:100, sect:"主体"},
+  {code:"3.1.2.39", eqp:"1101PT-BU01~34", name:"烧嘴及调节阀组", w:3.05, pct:0, sect:"管道"},
 ];
 
 // Sort: incomplete first, then by weight desc
@@ -899,7 +899,7 @@ sectOrder.forEach(function(name){
   list.forEach(function(item){
     var cls=item.pct===100?' done-row':'';
     html+='<div class="item-row'+cls+'">';
-    html+='<span style="font-size:10px;color:#64748b;min-width:56px">'+item.code+'</span>';
+    html+='<span style="font-size:10px;color:#94a3b8;min-width:56px">'+item.code+'</span>';html+='<span style="font-size:10px;color:#94a3b8;min-width:136px;font-family:monospace">'+item.eqp+'</span>';
     html+='<span class="item-name">'+item.name+'</span>';
     html+='<div class="item-mini-bar"><div class="item-mini-fill" style="width:'+item.pct+'%;background:'+getColor(item.pct)+'"></div></div>';
     html+='<span class="item-pct" style="color:'+getColor(item.pct)+'">'+item.pct+'%</span>';
