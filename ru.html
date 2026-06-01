@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Проект Северсталь · Панель прогресса</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:linear-gradient(180deg,#0c0c1d 0%,#151530 30%,#0f172a 100%);color:#e2e8f0;min-height:100vh;padding:20px}
+
+.tab-nav{display:flex;justify-content:center;gap:4px;margin-bottom:20px}
+.tab-btn{padding:10px 28px;border-radius:10px 10px 0 0;border:1px solid transparent;background:rgba(30,41,59,.5);color:#64748b;cursor:pointer;font-size:14px;font-weight:600;transition:all .25s}
+.tab-btn:hover{color:#94a3b8;background:rgba(30,41,59,.7)}
+.tab-btn.active{background:rgba(30,41,59,.9);color:#f1f5f9;border-color:rgba(148,163,184,.15);border-bottom-color:rgba(30,41,59,.9);box-shadow:0 -2px 12px rgba(0,0,0,.2)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+h2{font-size:22px;font-weight:700;text-align:center;margin-bottom:2px}
+.sub{font-size:12px;text-align:center;color:#64748b;margin-bottom:20px}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(480px,1fr));gap:16px;max-width:1500px;margin:0 auto}
+.card{background:rgba(30,41,59,.82);backdrop-filter:blur(18px);border:1px solid rgba(148,163,184,.1);border-radius:16px;padding:18px 16px 12px}
+.card .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.card .title{font-size:14px;font-weight:600}
+.card .badge{font-size:11px;padding:2px 10px;border-radius:10px;background:rgba(255,255,255,.06);color:#94a3b8}
+.chart-wrap{position:relative;width:100%;aspect-ratio:2/1;min-height:200px}
+canvas{width:100%!important;height:100%!important}
+.card-total{border-color:rgba(249,115,22,.3);border-width:2px}
+.card-total .title{color:#f97316;font-size:16px}
+
+/* WBS tree */
+.tree-wrap{max-width:1200px;margin:0 auto;background:rgba(30,41,59,.85);border-radius:16px;padding:24px 20px;border:1px solid rgba(148,163,184,.12)}
+.node{margin-left:0}
+.node .toggle{cursor:pointer;display:inline-block;width:16px;text-align:center;user-select:none;color:#64748b;margin-right:2px;font-size:11px;transition:.2s}
+.node .toggle:hover{color:#e2e8f0}
+.node .line{display:flex;align-items:center;padding:4px 6px;border-radius:4px;transition:background .15s;gap:6px}
+.node .line:hover{background:rgba(255,255,255,.03)}
+.node .code{font-size:11px;color:#64748b;min-width:64px;font-family:monospace}
+.node .prog-wrap{width:80px;height:8px;background:rgba(148,163,184,.1);border-radius:4px;overflow:hidden;flex-shrink:0}
+.node .prog-fill{height:100%;border-radius:4px;transition:width .4s}
+.node .prog-text{font-size:10px;color:#94a3b8;min-width:36px;text-align:right;flex-shrink:0}
+.node .name{font-size:13px;min-width:0}
+.node .weight-badge{font-size:11px;padding:1px 8px;border-radius:8px;white-space:nowrap;font-weight:600}
+.node.l0>.line>.code{color:#fbbf24;font-size:14px;font-weight:700}
+.node.l0>.line>.name{font-size:17px;font-weight:700;color:#fff}
+.node.l0>.line>.weight-badge{background:rgba(251,191,36,.15);color:#fbbf24;font-size:14px}
+.node.l0>.line>.prog-text{font-size:12px;font-weight:700}
+.node.l0>.line>.prog-wrap{width:120px;height:10px}
+.node.l1>.line>.code{color:#f97316;font-size:12px;font-weight:600}
+.node.l1>.line>.name{font-size:15px;font-weight:600;color:#f1f5f9}
+.node.l1>.line>.weight-badge{background:rgba(249,115,22,.15);color:#f97316;font-size:13px}
+.node.l2>.line>.code{color:#38bdf8;font-size:11px}
+.node.l2>.line>.name{font-size:13px;color:#e2e8f0}
+.node.l2>.line>.weight-badge{background:rgba(56,189,248,.1);color:#38bdf8}
+.node.l3>.line>.code{color:#94a3b8;font-size:10px}
+.node.l3>.line>.name{font-size:12px;color:#cbd5e1}
+.node.l3>.line>.weight-badge{background:rgba(148,163,184,.08);color:#94a3b8;font-size:10px}
+.children{margin-left:20px;overflow:hidden;transition:max-height .4s}
+.children.collapsed{max-height:0!important}
+.count-badge{font-size:10px;margin-left:4px;color:#475569}
+.days-badge{font-size:10px;padding:1px 6px;border-radius:6px;background:rgba(251,191,36,.08);color:#fbbf24;margin-left:6px;white-space:nowrap}
+.legend{display:flex;gap:20px;justify-content:center;margin-bottom:16px;font-size:11px;color:#64748b;flex-wrap:wrap}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend .dot{width:8px;height:8px;border-radius:2px}
+
+/* Roast machine cards */
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:linear-gradient(180deg,#0c0c1d,#151530 30%,#0f172a 100%);color:#e2e8f0;min-height:100vh;padding:28px}
+.wrap{max-width:1400px;margin:0 auto}
+h2{text-align:center;font-weight:700;font-size:20px;margin-bottom:2px}
+.sub{text-align:center;color:#64748b;font-size:12px;margin-bottom:24px}
+
+/* Top hero */
+.hero{background:rgba(30,41,59,.85);border-radius:20px;padding:28px 32px;margin-bottom:20px;border:1px solid rgba(255,107,107,.15);display:flex;align-items:center;gap:32px;flex-wrap:wrap}
+.gauge{flex-shrink:0;position:relative;width:140px;height:140px}
+.gauge svg{width:100%;height:100%}
+.gauge-num{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+.gauge-pct{font-size:32px;font-weight:800;background:linear-gradient(135deg,#ff6b6b,#ff8787);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1}
+.gauge-sub{font-size:11px;color:#cbd5e1}
+.hero-info{flex:1;min-width:260px}
+.hero-info h3{font-size:18px;margin-bottom:12px;color:#ff6b6b}
+.hero-stats{display:flex;gap:24px;flex-wrap:wrap}
+.hero-stat{min-width:80px}
+.hero-stat .n{font-size:24px;font-weight:700;color:#f1f5f9}
+.hero-stat .l{font-size:11px;color:#64748b;margin-top:2px}
+
+/* Section cards */
+.section-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(350px,1fr));gap:16px;margin-bottom:20px}
+.sect-card{background:rgba(30,41,59,.9);border-radius:14px;padding:16px 18px;border:1px solid rgba(148,163,184,.08);transition:border-color .2s}
+.sect-card:hover{border-color:rgba(148,163,184,.3)}
+.sect-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.sect-title{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;color:#e2e8f0}
+.sect-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.sect-progress{display:flex;align-items:center;gap:8px}
+.sect-bar{width:100px;height:6px;background:rgba(148,163,184,.1);border-radius:3px;overflow:hidden}
+.sect-bar-fill{height:100%;border-radius:3px}
+.sect-pct{font-size:13px;font-weight:700;color:#e2e8f0}
+
+.item-row{display:flex;align-items:center;padding:5px 0;gap:8px;font-size:12px}
+.item-row:not(:last-child){border-bottom:1px solid rgba(148,163,184,.04)}
+.item-name{flex:1;color:#e2e8f0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item-mini-bar{width:50px;height:4px;background:rgba(148,163,184,.08);border-radius:2px;overflow:hidden;flex-shrink:0}
+.item-mini-fill{height:100%;border-radius:2px}
+.item-pct{min-width:30px;text-align:right;font-weight:600;font-size:11px;color:#e2e8f0}
+.item-w{min-width:36px;text-align:right;font-size:10px;color:#94a3b8}
+.done-row{background:rgba(107,203,119,.04)}
+
+/* Legend bottoms */
+.bottom-legend{display:flex;gap:24px;justify-content:center;font-size:11px;color:#64748b;margin-top:16px}
+.bottom-legend span{display:flex;align-items:center;gap:5px}
+.bottom-legend .dot{width:8px;height:8px;border-radius:2px}
+
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:0% 0}}
+
+.lang-switch{position:fixed;top:14px;right:20px;z-index:200;padding:6px 14px;border-radius:8px;border:1px solid rgba(148,163,184,.2);background:rgba(20,30,50,.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#94a3b8;cursor:pointer;font-size:12px;font-weight:600;transition:all .2s;text-decoration:none}
+.lang-switch:hover{background:rgba(30,41,59,.95);color:#e2e8f0;border-color:rgba(56,189,248,.3)}
+
+</style>
+</head>
+<body>
+<h2>Проект Северсталь · Панель прогресса</h2>
+<div class="sub">Монтаж оборудования и КИП · 29.05.2026 → 01.01.2027</div>
+
+<a href="index.html" class="lang-switch" title="Русский">🇨🇳 中文</a>
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('dash')">📊 Графики</button>
+  <button class="tab-btn" onclick="switchTab('wbs')">🌲 Дерево WBS</button>
+  <button class="tab-btn" onclick="switchTab('roast')">🔩 Обжиговая машина</button>
+</div>
+
+<div class="tab-content active" id="tab-dash">
+<!-- 总体Прог.条-炫酷版 -->
+<div class="card" style="max-width:900px;margin:0 auto 18px;padding:24px 28px 20px;border:1px solid rgba(249,115,22,.25);background:linear-gradient(135deg,rgba(30,41,59,.92) 0%,rgba(15,23,42,.95) 100%);box-shadow:0 0 40px rgba(249,115,22,.08),0 8px 32px rgba(0,0,0,.3);position:relative;overflow:hidden;">
+  <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:radial-gradient(circle,rgba(249,115,22,.12) 0%,transparent 70%);pointer-events:none;"></div>
+  <div style="display:flex;align-items:center;gap:28px;flex-wrap:wrap;">
+    <!-- 左侧环形Прог.条 -->
+    <div style="flex-shrink:0;position:relative;width:100px;height:100px;">
+      <svg viewBox="0 0 120 120" style="width:100%;height:100%;">
+        <defs>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="2.5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#f97316"/>
+            <stop offset="100%" stop-color="#fbbf24"/>
+          </linearGradient>
+        </defs>
+        <circle cx="60" cy="60" r="48" fill="none" stroke="rgba(148,163,184,.12)" stroke-width="10"/>
+        <circle cx="60" cy="60" r="48" fill="none" stroke="url(#ringGrad)" stroke-width="10"
+          stroke-dasharray="301.6" stroke-dashoffset="177.3"
+          stroke-linecap="round" transform="rotate(-90 60 60)" filter="url(#glow)"/>
+        <text x="60" y="57" text-anchor="middle" fill="#f97316" font-size="22" font-weight="800" font-family="Microsoft YaHei,sans-serif">41</text>
+        <text x="60" y="77" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="500">%</text>
+      </svg>
+    </div>
+    <!-- 中间信息 -->
+    <div style="flex:1;min-width:250px;">
+      <div style="font-size:14px;font-weight:600;color:#e2e8f0;margin-bottom:10px;">Монтаж оборудования и КИП</div>
+      <!-- 渐变Прог.条 -->
+      <div style="position:relative;height:28px;background:rgba(148,163,184,.08);border-radius:14px;overflow:hidden;">
+        <div style="position:absolute;left:0;top:0;height:100%;width:41.24%;background:linear-gradient(90deg,#f97316,#fbbf24,#f97316);background-size:200% 100%;border-radius:14px;animation:shimmer 2s ease-in-out infinite;box-shadow:0 0 20px rgba(249,115,22,.3);"></div>
+        <div style="position:absolute;left:0;top:0;height:100%;width:41.24%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);background-size:200% 100%;border-radius:14px;animation:shimmer 1.5s linear infinite;"></div>
+        <!-- 刻度 -->
+        <div style="position:absolute;left:25%;top:0;height:100%;width:1px;background:rgba(255,255,255,.1);"></div>
+        <div style="position:absolute;left:50%;top:0;height:100%;width:1px;background:rgba(255,255,255,.15);"></div>
+        <div style="position:absolute;left:75%;top:0;height:100%;width:1px;background:rgba(255,255,255,.1);"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:#64748b;">
+        <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+      </div>
+    </div>
+    <!-- 右侧数字 -->
+    <div style="flex-shrink:0;text-align:center;">
+      <div style="font-size:42px;font-weight:800;background:linear-gradient(135deg,#f97316,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;">41.24<span style="font-size:20px;">%</span></div>
+      <div style="font-size:11px;color:#64748b;margin-top:4px;">Текущий прогресс</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:2px;">Осталось <span style="color:#fbbf24;font-weight:600;">58.76%</span></div>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:0% 0}}
+
+.lang-switch{position:fixed;top:14px;right:20px;z-index:200;padding:6px 14px;border-radius:8px;border:1px solid rgba(148,163,184,.2);background:rgba(20,30,50,.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#94a3b8;cursor:pointer;font-size:12px;font-weight:600;transition:all .2s;text-decoration:none}
+.lang-switch:hover{background:rgba(30,41,59,.95);color:#e2e8f0;border-color:rgba(56,189,248,.3)}
+
+</style>
+
+<!-- 顶部双图：条形图 + 饼图 -->
+<div style="max-width:1200px;margin:0 auto 20px;display:flex;gap:16px;flex-wrap:wrap;">
+<div class="card" style="flex:3;min-width:420px;border-color:rgba(56,189,248,.25);">
+  <div class="head"><span class="title" style="color:#38bdf8;font-size:16px;">📊 Текущий прогресс подсистем</span></div>
+  <div class="chart-wrap" style="min-height:340px;"><canvas id="barChart"></canvas></div>
+</div>
+<div class="card" style="flex:2;min-width:280px;">
+  <div class="head"><span class="title" style="color:#a78bfa;font-size:16px;">🍩 Распределение весов (1-й уровень)</span></div>
+  <div class="chart-wrap" style="min-height:340px;"><canvas id="pieChart"></canvas></div>
+</div>
+</div>
+
+<!-- 100焙烧 二级分解 -->
+<div style="max-width:1200px;margin:0 auto 20px;display:flex;gap:16px;flex-wrap:wrap;">
+<div class="card" style="flex:3;min-width:420px;border-color:rgba(107,203,119,.3);">
+  <div class="head"><span class="title" style="color:#6bcb77;font-size:16px;">🔬 Система обжига 100 · 2-й уровень</span><span class="badge">Общий вес 58.40% | Текущий 46.88%</span></div>
+  <div class="chart-wrap" style="min-height:380px;"><canvas id="roastBar"></canvas></div>
+</div>
+<div class="card" style="flex:2;min-width:280px;">
+  <div class="head"><span class="title" style="color:#6bcb77;font-size:16px;">🍩 Веса системы обжига</span></div>
+  <div class="chart-wrap" style="min-height:380px;"><canvas id="roastPie"></canvas></div>
+</div>
+</div>
+
+<!-- 1101焙烧室 第三层分解 -->
+<div style="max-width:1200px;margin:0 auto 20px;display:flex;gap:16px;flex-wrap:wrap;">
+<div class="card" style="flex:2;min-width:550px;border-color:rgba(255,107,107,.25);">
+  <div class="head"><span class="title" style="color:#ff6b6b;font-size:15px;">🔍 Камера обжига 1101 · 3-й уровень</span><span class="badge">Вес 27.40% | Текущий 68.07%</span></div>
+  <div class="chart-wrap" style="min-height:460px;"><canvas id="roast3Bar"></canvas></div>
+</div>
+<div class="card" style="flex:1;min-width:280px;">
+  <div class="head"><span class="title" style="color:#ff6b6b;font-size:15px;">🍩 Веса камеры обжига 1101</span></div>
+  <div class="chart-wrap" style="min-height:460px;"><canvas id="roast3Pie"></canvas></div>
+</div>
+</div>
+
+<!-- Общий итог S 曲线 -->
+<div class="card card-total" style="max-width:1200px;margin:0 auto 20px;">
+  <div class="head">
+    <span class="title" style="color:#f97316;font-size:18px;">📈 Плановая кривая завершения работ</span>
+    <span class="badge">Вес 100%</span>
+  </div>
+  <div class="chart-wrap" style="min-height:320px;"><canvas id="cTotalTop"></canvas></div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+const labels = [
+  '5/29','6/5','6/12','6/19','6/26','7/3','7/10','7/17','7/24','7/31',
+  '8/7','8/14','8/21','8/28','9/4','9/11','9/18','9/25','10/2','10/9',
+  '10/16','10/23','10/30','11/6','11/13','11/20','11/27','12/4','12/11','12/18',
+  '12/25','1/1'
+];
+
+const weekly = {
+  total:[41.24,5.34,8.68,7.20,6.45,5.87,5.07,3.54,2.98,2.66,1.45,1.37,1.31,1.29,0.70,0.44,0.38,0.37,0.35,0.33,0.33,0.33,0.33,0.31,0.31,0.31,0.31,0.24,0.23,0.23,0.02,0.01],
+  s300: [37.17,6.31,10.39,7.55,7.00,6.28,5.26,4.91,4.11,3.96,1.79,1.67,1.58,1.58,0.45,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  s200: [54.71,7.56,12.30,9.67,6.32,4.57,3.63,0.55,0.41,0.27,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  s100: [46.88,3.83,6.42,5.40,4.77,4.30,3.88,3.57,2.92,2.50,1.59,1.58,1.56,1.53,1.00,0.75,0.65,0.63,0.61,0.57,0.57,0.57,0.57,0.54,0.54,0.54,0.54,0.41,0.39,0.39,0.03,0.01],
+  s400: [40.75,15.66,19.56,13.95,7.61,2.47,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  s500: [20.87,10.52,12.65,9.42,8.50,7.69,5.45,4.21,4.21,4.21,4.05,3.03,2.27,2.27,0.65,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  s600: [34.28,10.09,13.39,11.72,11.72,10.98,7.82,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  s000: [16.45,7.89,13.81,13.81,13.81,13.81,12.26,2.98,2.75,2.45,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+};
+
+// Накопительный расчёт до 100%
+function cumUntil100(arr){
+  let s=0, result=[];
+  for(let v of arr){
+    s+=v;
+    let val=+s.toFixed(2);
+    if(val>=99.5) val=100;
+    result.push(val);
+    if(s>=99.5) break;
+  }
+  return result;
+}
+const d={}; for(const k in weekly) d[k]=cumUntil100(weekly[k]);
+
+const cards = [
+  {key:'s300', title:'300 Подготовка сырья',      color:'#ff6b6b',weight:19.00},
+  {key:'s200', title:'200 Окомкование',          color:'#ffd93d',weight:7.00},
+  {key:'s100', title:'100 Обжиг',          color:'#6bcb77',weight:58.40},
+  {key:'s400', title:'400 Готовая продукция',          color:'#4d96ff',weight:0.06},
+  {key:'s500', title:'500 Измельчение добавок',     color:'#c084fc',weight:4.45},
+  {key:'s600', title:'600 Общезаводские системы',          color:'#fb923c',weight:1.09},
+  {key:'s000', title:'000 Наружные сети',      color:'#22d3ee',weight:10.00},
+];
+
+// ── 横向条形图：Прогресс ──
+const bar = new Chart(document.getElementById('barChart'),{
+  type:'bar',
+  data:{
+    labels: ['300 原料处理','200 造球','100 焙烧','400 成品','500 添加剂','600 公用','000 总体/外网'],
+    datasets:[{
+      label:'Прогресс',
+      data:[37.17,54.71,46.88,40.75,20.87,34.28,16.45],
+      backgroundColor: ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c084fc','#fb923c','#22d3ee'].map(c=>c+'cc'),
+      borderColor:     ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c084fc','#fb923c','#22d3ee'],
+      borderWidth: 1.5,
+      borderRadius: 6,
+      borderSkipped: false,
+    },{
+      label:'剩余',
+      data:[62.83,45.29,53.12,59.25,79.13,65.72,83.55],
+      backgroundColor: 'rgba(148,163,184,.12)',
+      borderColor: 'rgba(148,163,184,.25)',
+      borderWidth: 1.5,
+      borderRadius: 6,
+      borderSkipped: false,
+    }]
+  },
+  options:{
+    indexAxis:'y',
+    responsive:true, maintainAspectRatio:false,
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.x+'%'}}
+    },
+    scales:{
+      x:{stacked:true, min:0,max:100,
+         ticks:{color:'#94a3b8',font:{size:10},callback:v=>v+'%'},
+         grid:{color:'rgba(148,163,184,.08)'}},
+      y:{stacked:true,
+         ticks:{color:'#cbd5e1',font:{size:11}},
+         grid:{display:false}}
+    }
+  }
+});
+
+// ── 环形图：Вес分布 ──
+new Chart(document.getElementById('pieChart'),{
+  type:'doughnut',
+  data:{
+    labels: ['300 原料处理(19%)','100 焙烧(58.4%)','000 总体/外网(10%)','200 造球(7%)','500 添加剂(4.45%)','600 公用(1.09%)','400 成品(0.06%)'],
+    datasets:[{
+      data: [19,58.4,10,7,4.45,1.09,0.06],
+      backgroundColor: ['#ff6b6b','#6bcb77','#22d3ee','#ffd93d','#c084fc','#fb923c','#4d96ff'].map(c=>c+'dd'),
+      borderColor: 'rgba(30,41,59,.9)',
+      borderWidth: 3,
+      hoverBorderColor: '#fff',
+      hoverBorderWidth: 2,
+    }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    cutout:'55%',
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:c=>c.label.split('(')[0]+': '+c.parsed+'%'}}
+    }
+  }
+});
+
+// ── 100焙烧 二级分解 ──
+const roastSubs = [
+  {name:'1101 焙烧室',         w:27.40, done:68.07},
+  {name:'2101 焙烧室',         w:27.40, done:36.69},
+  {name:'1102 工艺风机系统',    w:3.00,  done:38.46},
+  {name:'2102 工艺风机系统',    w:3.00,  done:5.44},
+  {name:'103 筛分室',          w:2.65,  done:57.24},
+  {name:'104 耐材',            w:10.27, done:8.87},
+  {name:'122 脱硫电气系统',     w:1.71,  done:19.53},
+  {name:'123 筛分电气室',       w:0.60,  done:0.00},
+  {name:'131 焙烧机尾/筛分除尘', w:0.51,  done:7.32},
+  {name:'132 铺底料系统除尘',    w:0.51,  done:0.00},
+  {name:'151 脱硫系统',         w:22.95, done:61.27},
+];
+const rLabels = roastSubs.map(s=>s.name);
+const rDone = roastSubs.map(s=>s.done);
+const rRest = roastSubs.map(s=>+(100-s.done).toFixed(1));
+const rW = roastSubs.map(s=>s.w);
+
+new Chart(document.getElementById('roastBar'),{
+  type:'bar',
+  data:{
+    labels: rLabels,
+    datasets:[{
+      label:'Завершено',
+      data: rDone,
+      backgroundColor: '#6bcb77cc',
+      borderColor: '#6bcb77',
+      borderWidth: 1.2,
+      borderRadius: 5,
+      borderSkipped: false,
+    },{
+      label:'剩余',
+      data: rRest,
+      backgroundColor: 'rgba(148,163,184,.12)',
+      borderColor: 'rgba(148,163,184,.2)',
+      borderWidth: 1.2,
+      borderRadius: 5,
+      borderSkipped: false,
+    }]
+  },
+  options:{
+    indexAxis:'y',
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.x+'%'}}},
+    scales:{
+      x:{stacked:true,min:0,max:100,ticks:{color:'#94a3b8',font:{size:10},callback:v=>v+'%'},grid:{color:'rgba(148,163,184,.08)'}},
+      y:{stacked:true,ticks:{color:'#cbd5e1',font:{size:10}},grid:{display:false}}
+    }
+  }
+});
+
+new Chart(document.getElementById('roastPie'),{
+  type:'doughnut',
+  data:{
+    labels: rLabels.map((l,i)=>l+'('+rW[i]+'%)'),
+    datasets:[{
+      data: rW,
+      backgroundColor: [
+        '#6bcb77','#4ade80','#a3e635','#34d399','#2dd4bf',
+        '#22d3ee','#38bdf8','#818cf8','#a78bfa','#c084fc','#f472b6'
+      ],
+      borderColor: 'rgba(30,41,59,.9)',
+      borderWidth: 2,
+    }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    cutout:'50%',
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:c=>{const parts=c.label.split('(');return parts[0]+': '+c.parsed+'%';}}}
+    }
+  }
+});
+
+// ── 1101焙烧室 第三层分解 ──
+const roast3Subs = [
+  {name:'Загрузка系统设备',        w:3.17, done:32.80},
+  {name:'带式焙烧机',          w:66.27,done:89.30},
+  {name:'皮带机类设备',        w:7.86, done:6.60},
+  {name:'助燃/Уплотнения风机设备',    w:0.51, done:75.00},
+  {name:'起重类设备',          w:1.73, done:48.30},
+  {name:'集中润滑系统设备',     w:3.42, done:5.90},
+  {name:'其他小型设备',        w:1.64, done:64.60},
+  {name:'振动类设备',          w:0.05, done:0.00},
+  {name:'钢结构仓',            w:4.22, done:90.00},
+  {name:'燃气Трубопровод系统',        w:3.80, done:15.00},
+  {name:'压缩空气Трубопровод系统',     w:1.27, done:5.00},
+  {name:'给排水Трубопровод系统',      w:1.01, done:5.00},
+  {name:'除尘Трубопровод系统',        w:1.27, done:0.00},
+  {name:'电气仪表系统',        w:3.80, done:10.00},
+];
+const r3Labels = roast3Subs.map(s=>s.name);
+const r3Done = roast3Subs.map(s=>s.done);
+const r3Rest = roast3Subs.map(s=>+(100-s.done).toFixed(1));
+const r3W = roast3Subs.map(s=>s.w);
+
+new Chart(document.getElementById('roast3Bar'),{
+  type:'bar',
+  data:{
+    labels: r3Labels,
+    datasets:[{
+      label:'Завершено',
+      data: r3Done,
+      backgroundColor: '#ff6b6bcc',
+      borderColor: '#ff6b6b',
+      borderWidth: 1.2,
+      borderRadius: 5,
+      borderSkipped: false,
+    },{
+      label:'剩余',
+      data: r3Rest,
+      backgroundColor: 'rgba(148,163,184,.12)',
+      borderColor: 'rgba(148,163,184,.2)',
+      borderWidth: 1.2,
+      borderRadius: 5,
+      borderSkipped: false,
+    }]
+  },
+  options:{
+    indexAxis:'y',
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.x+'%'}}},
+    scales:{
+      x:{stacked:true,min:0,max:100,ticks:{color:'#94a3b8',font:{size:9},callback:v=>v+'%'},grid:{color:'rgba(148,163,184,.08)'}},
+      y:{stacked:true,ticks:{color:'#cbd5e1',font:{size:10}},grid:{display:false}}
+    }
+  }
+});
+
+// pie - 用不同绿/红色系区分
+const r3Colors = [
+  '#ff6b6b','#ff8787','#ffa94d','#ffd93d','#ff922b',
+  '#fab005','#fcc419','#e8590c','#e64980','#be4bdb',
+  '#845ef7','#5c7cfa','#339af0','#22b8cf'
+];
+new Chart(document.getElementById('roast3Pie'),{
+  type:'doughnut',
+  data:{
+    labels: r3Labels.map((l,i)=>l+'('+r3W[i]+'%)'),
+    datasets:[{
+      data: r3W,
+      backgroundColor: r3Colors,
+      borderColor: 'rgba(30,41,59,.9)',
+      borderWidth: 2,
+    }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    cutout:'50%',
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:c=>{const p=c.label.split('(');return p[0]+': '+c.parsed+'%';}}}
+    }
+  }
+});
+
+const grid = document.getElementById('grid');
+cards.forEach((c,i)=>{
+  const card=document.createElement('div');
+  card.className='card';
+  card.innerHTML=
+    `<div class="head">
+      <span class="title" style="color:${c.color}">${c.title}</span>
+      <span class="badge">Вес ${c.weight}%</span>
+    </div>
+    <div class="chart-wrap"><canvas id="c${c.key}"></canvas></div>`;
+  grid.appendChild(card);
+});
+
+// ── Кривая общего прогресса ──
+(function(){
+  const td = d['total'];
+  new Chart(document.getElementById('cTotalTop'),{
+    type:'line',
+    data:{
+      labels: labels.slice(0, td.length),
+      datasets:[{
+        data: td,
+        borderColor: '#f97316',
+        backgroundColor: '#f9731618',
+        borderWidth: 3,
+        pointRadius: 2,
+        pointHoverRadius: 6,
+        pointBackgroundColor: '#f97316',
+        tension: 0.35,
+        fill: true,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:l=>'Накоплено: '+l.parsed.y+'%'}}},
+      scales:{
+        x:{ticks:{color:'#64748b',font:{size:9},maxRotation:45},grid:{color:'rgba(148,163,184,.06)'}},
+        y:{min:0,max:100,ticks:{color:'#64748b',font:{size:9},stepSize:20,callback:v=>v+'%'},grid:{color:'rgba(148,163,184,.06)'}}
+      }
+    }
+  });
+})();
+
+// Отрисовка кривых
+cards.forEach(c=>{
+  const data = d[c.key];
+  const cutLabels = labels.slice(0, data.length);
+  new Chart(document.getElementById('c'+c.key),{
+    type:'line',
+    data:{
+      labels: cutLabels,
+      datasets:[{
+        data: data,
+        borderColor: c.color,
+        backgroundColor: c.color+'18',
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointBackgroundColor: c.color,
+        tension: 0.35,
+        fill: true,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:l=>'Накоплено: '+l.parsed.y+'%'}}},
+      scales:{
+        x:{ticks:{color:'#64748b',font:{size:9},maxRotation:45},grid:{color:'rgba(148,163,184,.06)'}},
+        y:{min:0,max:100,ticks:{color:'#64748b',font:{size:9},stepSize:20,callback:v=>v+'%'},grid:{color:'rgba(148,163,184,.06)'}}
+      }
+    }
+  });
+});
+</script>
+</div>
+
+<div class="tab-content" id="tab-wbs">
+<div class="legend">
+  <span><span class="dot" style="background:#f97316"></span> L1 子系统 (7)</span>
+  <span><span class="dot" style="background:#38bdf8"></span> L2 分区 (43)</span>
+  <span><span class="dot" style="background:#94a3b8"></span> L3 设备 (214)</span>
+  <span>| ██ Полоса = % завершения на 29.05.2026</span>
+  <span>| 🕐 Ост. дни = расчётные чел-дни</span>
+  <span>| Вес标签 = % от родительского уровня</span>
+</div>
+<div style="max-width:1200px;margin:0 auto 12px;display:flex;gap:8px;justify-content:center;">
+  <button onclick="expandTo(0)" style="padding:5px 14px;border-radius:6px;border:1px solid rgba(251,191,36,.3);background:rgba(251,191,36,.1);color:#fbbf24;cursor:pointer;font-size:12px;font-weight:600">Только итог</button>
+  <button onclick="expandTo(1)" style="padding:5px 14px;border-radius:6px;border:1px solid rgba(249,115,22,.3);background:rgba(249,115,22,.1);color:#f97316;cursor:pointer;font-size:12px;font-weight:600">Уровень L1</button>
+  <button onclick="expandTo(2)" style="padding:5px 14px;border-radius:6px;border:1px solid rgba(56,189,248,.3);background:rgba(56,189,248,.1);color:#38bdf8;cursor:pointer;font-size:12px;font-weight:600">Уровень L2</button>
+  <button onclick="expandTo(3)" style="padding:5px 14px;border-radius:6px;border:1px solid rgba(148,163,184,.3);background:rgba(148,163,184,.1);color:#94a3b8;cursor:pointer;font-size:12px;font-weight:600">Уровень L3</button>
+  <button onclick="expandTo(99)" style="padding:5px 14px;border-radius:6px;border:1px solid rgba(148,163,184,.15);background:rgba(255,255,255,.03);color:#64748b;cursor:pointer;font-size:12px">Свернуть всё</button>
+</div>
+<div class="tree-wrap" id="tree">
+<div style="display:flex;align-items:center;padding:6px 6px;gap:6px;border-bottom:1px solid rgba(148,163,184,.1);margin-bottom:8px;font-size:11px;color:#64748b;font-weight:600">
+  <span style="width:16px"></span>
+  <span style="min-width:64px">Код</span>
+  <span style="width:80px;text-align:center">Прог.</span>
+  <span style="min-width:36px;text-align:right">%</span>
+  <span style="flex:1">Наименование</span>
+  <span style="min-width:56px;text-align:right" title="Расчётные человеко-дни на завершение">Ост. дни</span>
+  <span style="min-width:72px;text-align:right">Вес</span>
+  <span style="min-width:30px;text-align:center">Подп.</span>
+  <span style="min-width:30px;text-align:center">Подп.</span>
+</div>
+</div>
+
+<script>
+var TREE = [{"code": "1", "name": "Подготовка сырья", "weight": 0.0, "depth": 1, "progress": 37.2, "days": 0, "children": [{"code": "1.1", "name": "Отделение предв. дозирования", "weight": 0.0, "depth": 2, "progress": 76.3, "days": 0, "children": [{"code": "1.1.1", "name": "Ленточные конвейеры", "weight": 3.56, "depth": 3, "progress": 60.3, "days": 45, "children": []}, {"code": "1.1.2", "name": "Вибрационное оборудование", "weight": 5.5, "depth": 3, "progress": 90.0, "days": 20, "children": []}, {"code": "1.1.3", "name": "Грузоподъёмное оборудование", "weight": 0.8, "depth": 3, "progress": 85.0, "days": 15, "children": []}, {"code": "1.1.4", "name": "Централизованная система смазки", "weight": 1.56, "depth": 3, "progress": 0.0, "days": 30, "children": []}, {"code": "1.1.5", "name": "Прочее мелкое оборудование", "weight": 0.75, "depth": 3, "progress": 100.0, "days": 30, "children": []}, {"code": "1.1.6", "name": "Металлоконструкции бункеров", "weight": 67.37, "depth": 3, "progress": 90.0, "days": 50, "children": []}, {"code": "1.1.7", "name": "Футеровочные плиты", "weight": 17.97, "depth": 3, "progress": 40.0, "days": 60, "children": []}, {"code": "1.1.8", "name": "Система КИПиА", "weight": 2.5, "depth": 3, "progress": 0.0, "days": 20, "children": []}]}, {"code": "1.2", "name": "Отделение дозирования", "weight": 0.0, "depth": 2, "progress": 66.3, "days": 0, "children": [{"code": "1.2.1", "name": "Пылеулавливающее оборудование", "weight": 5.55, "depth": 3, "progress": 32.7, "days": 18, "children": []}, {"code": "1.2.2", "name": "Ленточные конвейеры", "weight": 9.53, "depth": 3, "progress": 20.7, "days": 60, "children": []}, {"code": "1.2.3", "name": "Вибрационное оборудование", "weight": 8.53, "depth": 3, "progress": 90.0, "days": 10, "children": []}, {"code": "1.2.4", "name": "Грузоподъёмное оборудование", "weight": 1.7, "depth": 3, "progress": 20.0, "days": 20, "children": []}, {"code": "1.2.5", "name": "Централизованная система смазки", "weight": 2.36, "depth": 3, "progress": 0.0, "days": 20, "children": []}, {"code": "1.2.6", "name": "Металлоконструкции бункеров", "weight": 43.04, "depth": 3, "progress": 90.0, "days": 30, "children": []}, {"code": "1.2.7", "name": "Футеровочные плиты", "weight": 25.98, "depth": 3, "progress": 60.0, "days": 30, "children": []}, {"code": "1.2.8", "name": "压缩空气Трубопровод系统", "weight": 1.42, "depth": 3, "progress": 10.0, "days": 10, "children": []}, {"code": "1.2.9", "name": "Система КИПиА", "weight": 1.89, "depth": 3, "progress": 0.0, "days": 30, "children": []}]}, {"code": "1.3", "name": "Отделение смешивания", "weight": 0.0, "depth": 2, "progress": 53.1, "days": 95, "children": [{"code": "1.3.1", "name": "Смесители", "weight": 52.32, "depth": 3, "progress": 70.0, "days": 10, "children": []}, {"code": "1.3.2", "name": "Ленточные конвейеры", "weight": 29.06, "depth": 3, "progress": 21.4, "days": 45, "children": []}, {"code": "1.3.3", "name": "Вибрационное оборудование", "weight": 3.0, "depth": 3, "progress": 0.0, "days": 10, "children": []}, {"code": "1.3.4", "name": "Грузоподъёмное оборудование", "weight": 11.99, "depth": 3, "progress": 80.0, "days": 5, "children": []}, {"code": "1.3.5", "name": "压缩空气Трубопровод系统", "weight": 2.27, "depth": 3, "progress": 30.0, "days": 15, "children": []}, {"code": "1.3.6", "name": "Система КИПиА", "weight": 1.36, "depth": 3, "progress": 0.0, "days": 10, "children": []}]}, {"code": "1.4", "name": "Отделение сухого помола", "weight": 0.0, "depth": 2, "progress": 31.9, "days": 0, "children": [{"code": "1.4.1", "name": "Шаровые мельницы", "weight": 26.68, "depth": 3, "progress": 50.0, "days": 90, "children": []}, {"code": "1.4.2", "name": "Газовые воздухонагреватели", "weight": 1.94, "depth": 3, "progress": 60.0, "days": 45, "children": []}, {"code": "1.4.3", "name": "Ленточные конвейеры", "weight": 4.53, "depth": 3, "progress": 10.6, "days": 60, "children": []}, {"code": "1.4.4", "name": "Ковшовые элеваторы", "weight": 3.46, "depth": 3, "progress": 40.0, "days": 60, "children": []}, {"code": "1.4.5", "name": "Вентиляторы", "weight": 3.25, "depth": 3, "progress": 50.0, "days": 50, "children": []}, {"code": "1.4.6", "name": "Аэрожелоба", "weight": 2.53, "depth": 3, "progress": 5.0, "days": 60, "children": []}, {"code": "1.4.7", "name": "Сепараторы", "weight": 3.46, "depth": 3, "progress": 46.7, "days": 60, "children": []}, {"code": "1.4.8", "name": "Циклоны", "weight": 2.3, "depth": 3, "progress": 70.0, "days": 40, "children": []}, {"code": "1.4.9", "name": "Пылеуловители", "weight": 26.21, "depth": 3, "progress": 37.9, "days": 90, "children": []}, {"code": "1.4.10", "name": "Грузоподъёмное оборудование", "weight": 1.64, "depth": 3, "progress": 0.0, "days": 10, "children": []}, {"code": "1.4.11", "name": "Прочее мелкое оборудование", "weight": 4.61, "depth": 3, "progress": 5.0, "days": 60, "children": []}, {"code": "1.4.12", "name": "Металлоконструкции бункеров", "weight": 6.91, "depth": 3, "progress": 5.0, "days": 60, "children": []}, {"code": "1.4.13", "name": "压缩空气Трубопровод系统", "weight": 2.16, "depth": 3, "progress": 0.0, "days": 10, "children": []}, {"code": "1.4.14", "name": "燃气Трубопровод系统", "weight": 0.96, "depth": 3, "progress": 0.0, "days": 10, "children": []}, {"code": "1.4.15", "name": "给排水Трубопровод系统", "weight": 1.2, "depth": 3, "progress": 0.0, "days": 10, "children": []}, {"code": "1.4.16", "name": "除尘Трубопровод系统", "weight": 5.28, "depth": 3, "progress": 0.0, "days": 30, "children": []}, {"code": "1.4.17", "name": "Система КИПиА", "weight": 2.88, "depth": 3, "progress": 0.0, "days": 60, "children": []}]}, {"code": "1.5", "name": "Бункер сухой руды", "weight": 0.0, "depth": 2, "progress": 3.2, "days": 0, "children": [{"code": "1.5.1", "name": "Ковшовые элеваторы", "weight": 20.33, "depth": 3, "progress": 0.0, "days": 40, "children": []}, {"code": "1.5.2", "name": "Аэрожелоба", "weight": 7.84, "depth": 3, "progress": 0.0, "days": 30, "children": []}, {"code": "1.5.3", "name": "Рукавные фильтры", "weight": 20.33, "depth": 3, "progress": 8.0, "days": 25, "children": []}, {"code": "1.5.4", "name": "Роторные весы, увлажнители", "weight": 21.35, "depth": 3, "progress": 0.0, "days": 20, "children": []}, {"code": "1.5.5", "name": "Грузоподъёмное оборудование", "weight": 1.27, "depth": 3, "progress": 0.0, "days": 10, "children": []}, {"code": "1.5.6", "name": "Прочее мелкое оборудование", "weight": 5.17, "depth": 3, "progress": 30.0, "days": 20, "children": []}, {"code": "1.5.7", "name": "压缩空气Трубопровод系统", "weight": 3.39, "depth": 3, "progress": 0.0, "days": 10, "children": []}, {"code": "1.5.8", "name": "给排水Трубопровод系统", "weight": 3.39, "depth": 3, "progress": 0.0, "days": 10, "children": []}, {"code": "1.5.9", "name": "Система КИПиА", "weight": 16.94, "depth": 3, "progress": 0.0, "days": 40, "children": []}]}, {"code": "1.6", "name": "Перегрузочный узел PT2", "weight": 0.0, "depth": 2, "progress": 27.4, "days": 0, "children": [{"code": "1.6.1", "name": "Ленточные конвейеры", "weight": 77.55, "depth": 3, "progress": 35.3, "days": 30, "children": []}, {"code": "1.6.2", "name": "Вибрационное оборудование", "weight": 6.12, "depth": 3, "progress": 0.0, "days": 5, "children": []}, {"code": "1.6.3", "name": "Грузоподъёмное оборудование", "weight": 10.2, "depth": 3, "progress": 0.0, "days": 5, "children": []}, {"code": "1.6.4", "name": "Система КИПиА", "weight": 6.12, "depth": 3, "progress": 0.0, "days": 3, "children": []}]}, {"code": "1.7", "name": "Подготовка сырья电气室", "weight": 0.0, "depth": 2, "progress": 0.0, "days": 45, "children": []}, {"code": "1.8", "name": "Электрощитовая предв. дозирования", "weight": 0.0, "depth": 2, "progress": 0.0, "days": 45, "children": []}, {"code": "1.9", "name": "Аспирация предв. дозирования", "weight": 0.0, "depth": 2, "progress": 24.0, "days": 0, "children": [{"code": "1.9.1", "name": "Пылеуловитель", "weight": 68.35, "depth": 3, "progress": 15.0, "days": 70, "children": []}, {"code": "1.9.2", "name": "Вентиляторы", "weight": 5.06, "depth": 3, "progress": 80.0, "days": 20, "children": []}, {"code": "1.9.3", "name": "除尘Трубопровод系统", "weight": 24.3, "depth": 3, "progress": 40.0, "days": 60, "children": []}, {"code": "1.9.4", "name": "Система КИПиА", "weight": 2.28, "depth": 3, "progress": 0.0, "days": 15, "children": []}]}, {"code": "1.10", "name": "Аспирация дозирования и смешивания", "weight": 0.0, "depth": 2, "progress": 10.1, "days": 0, "children": [{"code": "1.10.1", "name": "Пылеуловитель", "weight": 77.81, "depth": 3, "progress": 13.0, "days": 70, "children": []}, {"code": "1.10.2", "name": "Вентиляторы", "weight": 5.76, "depth": 3, "progress": 0.0, "days": 20, "children": []}, {"code": "1.10.3", "name": "除尘Трубопровод系统", "weight": 13.83, "depth": 3, "progress": 0.0, "days": 30, "children": []}, {"code": "1.10.4", "name": "Система КИПиА", "weight": 2.59, "depth": 3, "progress": 0.0, "days": 45, "children": []}]}]}, {"code": "2", "name": "Окомкование", "weight": 0.0, "depth": 1, "progress": 54.7, "days": 0, "children": [{"code": "2.1", "name": "Отделение окомкования", "weight": 0.0, "depth": 2, "progress": 70.5, "days": 0, "children": [{"code": "2.1.1", "name": "Окомкователи", "weight": 33.13, "depth": 3, "progress": 90.0, "days": 10, "children": []}, {"code": "2.1.2", "name": "Ленточные конвейеры", "weight": 6.4, "depth": 3, "progress": 54.5, "days": 40, "children": []}, {"code": "2.1.3", "name": "Роликовые грохоты", "weight": 13.25, "depth": 3, "progress": 70.0, "days": 20, "children": []}, {"code": "2.1.4", "name": "Вибрационное оборудование", "weight": 5.89, "depth": 3, "progress": 70.0, "days": 10, "children": []}, {"code": "2.1.5", "name": "Грузоподъёмное оборудование", "weight": 2.37, "depth": 3, "progress": 58.6, "days": 10, "children": []}, {"code": "2.1.6", "name": "Централизованная система смазки", "weight": 6.13, "depth": 3, "progress": 65.0, "days": 15, "children": []}, {"code": "2.1.7", "name": "Прочее мелкое оборудование", "weight": 0.2, "depth": 3, "progress": 0.0, "days": 5, "children": []}, {"code": "2.1.8", "name": "Металлоконструкции бункеров", "weight": 14.72, "depth": 3, "progress": 95.0, "days": 15, "children": []}, {"code": "2.1.9", "name": "Футеровочные плиты", "weight": 5.52, "depth": 3, "progress": 10.0, "days": 50, "children": []}, {"code": "2.1.10", "name": "Лифт", "weight": 3.68, "depth": 3, "progress": 0.0, "days": 30, "children": []}, {"code": "2.1.11", "name": "智能Окомкование", "weight": 0.51, "depth": 3, "progress": 0.0, "days": 5, "children": []}, {"code": "2.1.12", "name": "压缩空气Трубопровод系统", "weight": 4.09, "depth": 3, "progress": 45.0, "days": 20, "children": []}, {"code": "2.1.13", "name": "给排水Трубопровод系统", "weight": 4.09, "depth": 3, "progress": 50.0, "days": 20, "children": []}]}, {"code": "2.2", "name": "Отделение окомкования", "weight": 0.0, "depth": 2, "progress": 54.7, "days": 0, "children": [{"code": "2.2.1", "name": "Окомкователи", "weight": 34.62, "depth": 3, "progress": 80.0, "days": 20, "children": []}, {"code": "2.2.2", "name": "Ленточные конвейеры", "weight": 6.69, "depth": 3, "progress": 21.5, "days": 60, "children": []}, {"code": "2.2.3", "name": "Роликовые грохоты", "weight": 13.85, "depth": 3, "progress": 65.0, "days": 20, "children": []}, {"code": "2.2.4", "name": "Вибрационное оборудование", "weight": 6.15, "depth": 3, "progress": 65.0, "days": 10, "children": []}, {"code": "2.2.5", "name": "Грузоподъёмное оборудование", "weight": 2.48, "depth": 3, "progress": 0.0, "days": 15, "children": []}, {"code": "2.2.6", "name": "Централизованная система смазки", "weight": 6.41, "depth": 3, "progress": 0.0, "days": 25, "children": []}, {"code": "2.2.7", "name": "Прочее мелкое оборудование", "weight": 0.21, "depth": 3, "progress": 0.0, "days": 5, "children": []}, {"code": "2.2.8", "name": "Металлоконструкции бункеров", "weight": 15.38, "depth": 3, "progress": 65.0, "days": 15, "children": []}, {"code": "2.2.9", "name": "Футеровочные плиты", "weight": 1.28, "depth": 3, "progress": 0.0, "days": 60, "children": []}, {"code": "2.2.10", "name": "Лифт", "weight": 3.85, "depth": 3, "progress": 0.0, "days": 30, "children": []}, {"code": "2.2.11", "name": "智能Окомкование", "weight": 0.53, "depth": 3, "progress": 0.0, "days": 5, "children": []}, {"code": "2.2.12", "name": "压缩空气Трубопровод系统", "weight": 4.27, "depth": 3, "progress": 35.0, "days": 20, "children": []}, {"code": "2.2.13", "name": "给排水Трубопровод系统", "weight": 4.27, "depth": 3, "progress": 25.0, "days": 20, "children": []}]}, {"code": "2.3", "name": "Электрощитовая окомкования", "weight": 0.0, "depth": 2, "progress": 35.0, "days": 0, "children": []}]}, {"code": "3", "name": "Обжиг", "weight": 0.0, "depth": 1, "progress": 46.9, "days": 0, "children": [{"code": "3.1", "name": "Камера обжига", "weight": 0.0, "depth": 2, "progress": 68.1, "days": 0, "children": [{"code": "3.1.1", "name": "Загрузка系统设备", "weight": 3.17, "depth": 3, "progress": 32.8, "days": 35, "children": []}, {"code": "3.1.2", "name": "Обжиговая машина конвейерного типа", "weight": 66.27, "depth": 3, "progress": 89.3, "days": 100, "children": []}, {"code": "3.1.3", "name": "Ленточные конвейеры", "weight": 7.86, "depth": 3, "progress": 6.6, "days": 60, "children": []}, {"code": "3.1.4", "name": "助燃、Уплотнения风机设备", "weight": 0.51, "depth": 3, "progress": 75.0, "days": 5, "children": []}, {"code": "3.1.5", "name": "Грузоподъёмное оборудование", "weight": 1.73, "depth": 3, "progress": 48.3, "days": 10, "children": []}, {"code": "3.1.6", "name": "Централизованная система смазки", "weight": 3.42, "depth": 3, "progress": 5.9, "days": 60, "children": []}, {"code": "3.1.7", "name": "Прочее мелкое оборудование", "weight": 1.64, "depth": 3, "progress": 64.6, "days": 15, "children": []}, {"code": "3.1.8", "name": "Вибрационное оборудование", "weight": 0.05, "depth": 3, "progress": 0.0, "days": 2, "children": []}, {"code": "3.1.9", "name": "Металлоконструкции бункеров", "weight": 4.22, "depth": 3, "progress": 90.0, "days": 10, "children": []}, {"code": "3.1.10", "name": "燃气Трубопровод系统", "weight": 3.8, "depth": 3, "progress": 15.0, "days": 45, "children": []}, {"code": "3.1.11", "name": "压缩空气Трубопровод系统", "weight": 1.27, "depth": 3, "progress": 5.0, "days": 15, "children": []}, {"code": "3.1.12", "name": "给排水Трубопровод系统", "weight": 1.01, "depth": 3, "progress": 5.0, "days": 15, "children": []}, {"code": "3.1.13", "name": "除尘Трубопровод系统", "weight": 1.27, "depth": 3, "progress": 0.0, "days": 15, "children": []}, {"code": "3.1.14", "name": "Система КИПиА", "weight": 3.8, "depth": 3, "progress": 10.0, "days": 30, "children": []}]}, {"code": "3.2", "name": "Камера обжига", "weight": 0.0, "depth": 2, "progress": 36.7, "days": 0, "children": [{"code": "3.2.1", "name": "Загрузка系统设备", "weight": 3.22, "depth": 3, "progress": 32.7, "days": 40, "children": []}, {"code": "3.2.2", "name": "Обжиговая машина конвейерного типа", "weight": 67.2, "depth": 3, "progress": 44.8, "days": 200, "children": []}, {"code": "3.2.3", "name": "Ленточные конвейеры", "weight": 7.97, "depth": 3, "progress": 5.6, "days": 60, "children": []}, {"code": "3.2.4", "name": "助燃、Уплотнения风机设备", "weight": 0.51, "depth": 3, "progress": 75.0, "days": 5, "children": []}, {"code": "3.2.5", "name": "Грузоподъёмное оборудование", "weight": 1.75, "depth": 3, "progress": 48.3, "days": 10, "children": []}, {"code": "3.2.6", "name": "Централизованная система смазки", "weight": 2.05, "depth": 3, "progress": 0.0, "days": 60, "children": []}, {"code": "3.2.7", "name": "Прочее мелкое оборудование", "weight": 1.67, "depth": 3, "progress": 0.0, "days": 60, "children": []}, {"code": "3.2.8", "name": "Вибрационное оборудование", "weight": 0.05, "depth": 3, "progress": 0.0, "days": 2, "children": []}, {"code": "3.2.9", "name": "Металлоконструкции бункеров", "weight": 4.28, "depth": 3, "progress": 90.0, "days": 10, "children": []}, {"code": "3.2.10", "name": "燃气Трубопровод系统", "weight": 3.85, "depth": 3, "progress": 0.0, "days": 45, "children": []}, {"code": "3.2.11", "name": "压缩空气Трубопровод系统", "weight": 1.28, "depth": 3, "progress": 0.0, "days": 15, "children": []}, {"code": "3.2.12", "name": "给排水Трубопровод系统", "weight": 1.03, "depth": 3, "progress": 0.0, "days": 15, "children": []}, {"code": "3.2.13", "name": "除尘Трубопровод系统", "weight": 1.28, "depth": 3, "progress": 0.0, "days": 15, "children": []}, {"code": "3.2.14", "name": "Система КИПиА", "weight": 3.85, "depth": 3, "progress": 0.0, "days": 30, "children": []}]}, {"code": "3.3", "name": "Система техн. вентиляторов", "weight": 0.0, "depth": 2, "progress": 38.5, "days": 0, "children": [{"code": "3.3.1", "name": "Вентилятор охлаждения", "weight": 1.75, "depth": 3, "progress": 75.0, "days": 15, "children": []}, {"code": "3.3.2", "name": "Вентилятор сушки", "weight": 1.68, "depth": 3, "progress": 75.0, "days": 15, "children": []}, {"code": "3.3.3", "name": "Вентилятор рециркуляции", "weight": 1.68, "depth": 3, "progress": 75.0, "days": 15, "children": []}, {"code": "3.3.4", "name": "Главный эксгаустер", "weight": 1.77, "depth": 3, "progress": 20.0, "days": 30, "children": []}, {"code": "3.3.5", "name": "Вентилятор горна", "weight": 0.99, "depth": 3, "progress": 80.0, "days": 10, "children": []}, {"code": "3.3.6", "name": "Главный электрофильтр", "weight": 35.52, "depth": 3, "progress": 30.0, "days": 150, "children": []}, {"code": "3.3.7", "name": "Электрофильтр горна", "weight": 18.95, "depth": 3, "progress": 55.0, "days": 110, "children": []}, {"code": "3.3.8", "name": "热风Трубопровод系统", "weight": 35.52, "depth": 3, "progress": 30.0, "days": 90, "children": []}, {"code": "3.3.9", "name": "Грузоподъёмное оборудование", "weight": 1.14, "depth": 3, "progress": 85.0, "days": 10, "children": []}, {"code": "3.3.10", "name": "Прочее мелкое оборудование", "weight": 0.78, "depth": 3, "progress": 90.0, "days": 10, "children": []}, {"code": "3.3.11", "name": "给排水Трубопровод系统", "weight": 0.14, "depth": 3, "progress": 50.0, "days": 10, "children": []}, {"code": "3.3.12", "name": "Система КИПиА", "weight": 0.07, "depth": 3, "progress": 0.0, "days": 5, "children": []}]}, {"code": "3.4", "name": "Система техн. вентиляторов", "weight": 0.0, "depth": 2, "progress": 5.4, "days": 0, "children": [{"code": "3.4.1", "name": "Вентилятор охлаждения", "weight": 1.75, "depth": 3, "progress": 0.0, "days": 25, "children": []}, {"code": "3.4.2", "name": "Вентилятор сушки", "weight": 1.68, "depth": 3, "progress": 0.0, "days": 25, "children": []}, {"code": "3.4.3", "name": "Вентилятор рециркуляции", "weight": 1.68, "depth": 3, "progress": 0.0, "days": 25, "children": []}, {"code": "3.4.4", "name": "Главный эксгаустер", "weight": 1.76, "depth": 3, "progress": 0.0, "days": 25, "children": []}, {"code": "3.4.5", "name": "Вентилятор горна", "weight": 0.99, "depth": 3, "progress": 0.0, "days": 20, "children": []}, {"code": "3.4.6", "name": "Главный электрофильтр", "weight": 35.47, "depth": 3, "progress": 10.0, "days": 210, "children": []}, {"code": "3.4.7", "name": "Электрофильтр горна", "weight": 18.92, "depth": 3, "progress": 10.0, "days": 180, "children": []}, {"code": "3.4.8", "name": "热风Трубопровод系统", "weight": 35.47, "depth": 3, "progress": 0.0, "days": 120, "children": []}, {"code": "3.4.9", "name": "Грузоподъёмное оборудование", "weight": 1.14, "depth": 3, "progress": 0.0, "days": 15, "children": []}, {"code": "3.4.10", "name": "Прочее мелкое оборудование", "weight": 0.78, "depth": 3, "progress": 0.0, "days": 20, "children": []}, {"code": "3.4.11", "name": "给排水Трубопровод系统", "weight": 0.28, "depth": 3, "progress": 0.0, "days": 20, "children": []}, {"code": "3.4.12", "name": "Система КИПиА", "weight": 0.07, "depth": 3, "progress": 0.0, "days": 5, "children": []}]}, {"code": "3.5", "name": "Отделение грохочения", "weight": 0.0, "depth": 2, "progress": 57.2, "days": 0, "children": [{"code": "3.5.1", "name": "Грохот", "weight": 24.49, "depth": 3, "progress": 100.0, "days": 0, "children": []}, {"code": "3.5.2", "name": "Ленточные конвейеры", "weight": 45.92, "depth": 3, "progress": 25.5, "days": 25, "children": []}, {"code": "3.5.3", "name": "Централизованная система смазки", "weight": 6.12, "depth": 3, "progress": 0.0, "days": 10, "children": []}, {"code": "3.5.4", "name": "Грузоподъёмное оборудование", "weight": 1.53, "depth": 3, "progress": 42.5, "days": 10, "children": []}, {"code": "3.5.5", "name": "Прочее мелкое оборудование", "weight": 4.29, "depth": 3, "progress": 85.0, "days": 5, "children": []}, {"code": "3.5.6", "name": "Металлоконструкции желобов", "weight": 17.65, "depth": 3, "progress": 95.0, "days": 5, "children": []}]}, {"code": "3.6", "name": "Огнеупоры", "weight": 0.0, "depth": 2, "progress": 8.9, "days": 0, "children": [{"code": "3.6.1", "name": "Огнеупорные материалы", "weight": 50.0, "depth": 3, "progress": 17.7, "days": 50, "children": []}, {"code": "3.6.2", "name": "Огнеупорные материалы", "weight": 50.0, "depth": 3, "progress": 0.0, "days": 90, "children": []}]}, {"code": "3.7", "name": "Электрооборудование десульфуризации", "weight": 0.0, "depth": 2, "progress": 19.5, "days": 0, "children": [{"code": "3.7.1", "name": "Электрика десульфуризации №1", "weight": 16.47, "depth": 3, "progress": 20.0, "days": 60, "children": []}, {"code": "3.7.2", "name": "КИП десульфуризации №1", "weight": 9.41, "depth": 3, "progress": 15.0, "days": 40, "children": []}, {"code": "3.7.3", "name": "ПЛК десульфуризации №1", "weight": 21.18, "depth": 3, "progress": 50.0, "days": 45, "children": []}, {"code": "3.7.4", "name": "Электрика десульфуризации №2", "weight": 18.53, "depth": 3, "progress": 10.0, "days": 70, "children": []}, {"code": "3.7.5", "name": "КИП десульфуризации №2", "weight": 10.59, "depth": 3, "progress": 0.0, "days": 45, "children": []}, {"code": "3.7.6", "name": "ПЛК десульфуризации №2", "weight": 23.82, "depth": 3, "progress": 10.0, "days": 90, "children": []}]}, {"code": "3.8", "name": "Электрощитовая грохочения", "weight": 0.0, "depth": 2, "progress": 0.0, "days": 0, "children": []}, {"code": "3.9", "name": "Аспирация хвостовой части и грохочения", "weight": 0.0, "depth": 2, "progress": 7.3, "days": 0, "children": [{"code": "3.9.1", "name": "Пылеуловитель", "weight": 73.17, "depth": 3, "progress": 10.0, "days": 90, "children": []}, {"code": "3.9.2", "name": "Вентиляторы", "weight": 4.07, "depth": 3, "progress": 0.0, "days": 25, "children": []}, {"code": "3.9.3", "name": "除尘Трубопровод系统", "weight": 20.33, "depth": 3, "progress": 0.0, "days": 45, "children": []}, {"code": "3.9.4", "name": "Система КИПиА", "weight": 2.44, "depth": 3, "progress": 0.0, "days": 25, "children": []}]}, {"code": "3.10", "name": "Аспирация системы подсыпки", "weight": 0.0, "depth": 2, "progress": 0.0, "days": 0, "children": [{"code": "3.10.1", "name": "Пылеуловитель", "weight": 74.07, "depth": 3, "progress": 0.0, "days": 80, "children": []}, {"code": "3.10.2", "name": "Вентиляторы", "weight": 4.63, "depth": 3, "progress": 0.0, "days": 15, "children": []}, {"code": "3.10.3", "name": "除尘Трубопровод系统", "weight": 18.52, "depth": 3, "progress": 0.0, "days": 20, "children": []}, {"code": "3.10.4", "name": "Система КИПиА", "weight": 2.78, "depth": 3, "progress": 0.0, "days": 15, "children": []}]}, {"code": "3.11", "name": "Система десульфуризации", "weight": 0.0, "depth": 2, "progress": 61.3, "days": 0, "children": [{"code": "3.11.1", "name": "Оборудование десульфуризации №2", "weight": 44.22, "depth": 3, "progress": 67.5, "days": 180, "children": []}, {"code": "3.11.2", "name": "2#脱硫系统Трубопровод、阀门", "weight": 13.95, "depth": 3, "progress": 6.3, "days": 90, "children": []}, {"code": "3.11.3", "name": "Оборудование десульфуризации №1", "weight": 29.31, "depth": 3, "progress": 85.0, "days": 50, "children": []}, {"code": "3.11.4", "name": "1#脱硫系统Трубопровод、阀门", "weight": 12.52, "depth": 3, "progress": 45.0, "days": 60, "children": []}]}]}, {"code": "4", "name": "Готовая продукция", "weight": 0.0, "depth": 1, "progress": 40.7, "days": 0, "children": [{"code": "4.1", "name": "Отделение отбора проб", "weight": 0.0, "depth": 2, "progress": 48.9, "days": 0, "children": [{"code": "4.1.1", "name": "Пробоотборное оборудование", "weight": 45.84, "depth": 3, "progress": 95.0, "days": 5, "children": []}, {"code": "4.1.2", "name": "Грузоподъёмное оборудование", "weight": 0.71, "depth": 3, "progress": 0.0, "days": 1, "children": []}, {"code": "4.1.3", "name": "Монтаж желобов и течек", "weight": 7.13, "depth": 3, "progress": 75.0, "days": 5, "children": []}, {"code": "4.1.4", "name": "除尘Трубопровод", "weight": 28.5, "depth": 3, "progress": 0.0, "days": 15, "children": []}, {"code": "4.1.5", "name": "Система КИПиА", "weight": 17.81, "depth": 3, "progress": 0.0, "days": 25, "children": []}]}, {"code": "4.2", "name": "Перегрузочный узел PT1", "weight": 0.0, "depth": 2, "progress": 0.0, "days": 0, "children": [{"code": "4.2.1", "name": "Ленточные конвейеры", "weight": 88.89, "depth": 3, "progress": 0.0, "days": 30, "children": []}, {"code": "4.2.2", "name": "Грузоподъёмное оборудование", "weight": 5.56, "depth": 3, "progress": 0.0, "days": 2, "children": []}, {"code": "4.2.3", "name": "Система КИПиА", "weight": 5.56, "depth": 3, "progress": 0.0, "days": 5, "children": []}]}]}, {"code": "5", "name": "Измельчение добавок", "weight": 0.0, "depth": 1, "progress": 20.9, "days": 0, "children": [{"code": "5.1", "name": "Система подготовки флюса", "weight": 0.0, "depth": 2, "progress": 25.9, "days": 0, "children": [{"code": "5.1.1", "name": "Вертикальные мельницы", "weight": 13.59, "depth": 3, "progress": 80.0, "days": 30, "children": []}, {"code": "5.1.2", "name": "Ковшовые конвейеры", "weight": 4.16, "depth": 3, "progress": 50.0, "days": 30, "children": []}, {"code": "5.1.3", "name": "Воздухонагреватели", "weight": 3.25, "depth": 3, "progress": 80.0, "days": 15, "children": []}, {"code": "5.1.4", "name": "Главный циклон-осадитель", "weight": 48.78, "depth": 3, "progress": 5.0, "days": 90, "children": []}, {"code": "5.1.5", "name": "Ленточные конвейеры", "weight": 3.18, "depth": 3, "progress": 31.8, "days": 60, "children": []}, {"code": "5.1.6", "name": "Вибрационное оборудование", "weight": 1.66, "depth": 3, "progress": 0.0, "days": 5, "children": []}, {"code": "5.1.7", "name": "Вентиляторы", "weight": 7.05, "depth": 3, "progress": 30.0, "days": 30, "children": []}, {"code": "5.1.8", "name": "Грузоподъёмное оборудование", "weight": 1.99, "depth": 3, "progress": 80.0, "days": 5, "children": []}, {"code": "5.1.9", "name": "Прочее мелкое оборудование", "weight": 2.67, "depth": 3, "progress": 10.0, "days": 30, "children": []}, {"code": "5.1.10", "name": "Металлоконструкции бункеров", "weight": 5.78, "depth": 3, "progress": 50.0, "days": 30, "children": []}, {"code": "5.1.11", "name": "Футеровочные плиты", "weight": 4.34, "depth": 3, "progress": 0.0, "days": 30, "children": []}, {"code": "5.1.12", "name": "Система пневмотранспорта пыли", "weight": 0.9, "depth": 3, "progress": 0.0, "days": 15, "children": []}, {"code": "5.1.13", "name": "Централизованная система смазки", "weight": 0.6, "depth": 3, "progress": 0.0, "days": 10, "children": []}, {"code": "5.1.14", "name": "压缩空气Трубопровод系统", "weight": 0.6, "depth": 3, "progress": 0.0, "days": 10, "children": []}, {"code": "5.1.15", "name": "燃气Трубопровод系统", "weight": 1.45, "depth": 3, "progress": 0.0, "days": 15, "children": []}]}, {"code": "5.2", "name": "Система подготовки бентонита", "weight": 0.0, "depth": 2, "progress": 19.4, "days": 0, "children": [{"code": "5.2.1", "name": "Вертикальные мельницы", "weight": 14.73, "depth": 3, "progress": 80.0, "days": 10, "children": []}, {"code": "5.2.2", "name": "Воздухонагреватель", "weight": 4.48, "depth": 3, "progress": 80.0, "days": 5, "children": []}, {"code": "5.2.3", "name": "Главный циклон-осадитель", "weight": 59.73, "depth": 3, "progress": 0.0, "days": 70, "children": []}, {"code": "5.2.4", "name": "Ленточные конвейеры", "weight": 0.25, "depth": 3, "progress": 0.0, "days": 2, "children": []}, {"code": "5.2.5", "name": "Вибрационное оборудование", "weight": 2.29, "depth": 3, "progress": 0.0, "days": 2, "children": []}, {"code": "5.2.6", "name": "Вентиляторы", "weight": 5.23, "depth": 3, "progress": 30.0, "days": 15, "children": []}, {"code": "5.2.7", "name": "Грузоподъёмное оборудование", "weight": 0.3, "depth": 3, "progress": 80.0, "days": 3, "children": []}, {"code": "5.2.8", "name": "Прочее мелкое оборудование", "weight": 0.3, "depth": 3, "progress": 10.0, "days": 15, "children": []}, {"code": "5.2.9", "name": "Металлоконструкции бункеров", "weight": 4.48, "depth": 3, "progress": 50.0, "days": 15, "children": []}, {"code": "5.2.10", "name": "Футеровочные плиты", "weight": 2.99, "depth": 3, "progress": 0.0, "days": 5, "children": []}, {"code": "5.2.11", "name": "Система пневмотранспорта пыли", "weight": 1.99, "depth": 3, "progress": 0.0, "days": 5, "children": []}, {"code": "5.2.12", "name": "压缩空气Трубопровод系统", "weight": 1.24, "depth": 3, "progress": 0.0, "days": 3, "children": []}, {"code": "5.2.13", "name": "燃气Трубопровод系统", "weight": 1.99, "depth": 3, "progress": 0.0, "days": 3, "children": []}]}, {"code": "5.3", "name": "Электрощитовая измельчения добавок", "weight": 0.0, "depth": 2, "progress": 0.0, "days": 0, "children": []}, {"code": "5.4", "name": "Аспирация сухого помола и добавок", "weight": 0.0, "depth": 2, "progress": 3.4, "days": 0, "children": [{"code": "5.4.1", "name": "Пылеуловитель", "weight": 68.57, "depth": 3, "progress": 5.0, "days": 70, "children": []}, {"code": "5.4.2", "name": "Вентиляторы", "weight": 2.86, "depth": 3, "progress": 0.0, "days": 15, "children": []}, {"code": "5.4.3", "name": "除尘Трубопровод系统", "weight": 28.57, "depth": 3, "progress": 0.0, "days": 10, "children": []}]}]}, {"code": "6", "name": "Общезаводские системы", "weight": 0.0, "depth": 1, "progress": 34.3, "days": 0, "children": [{"code": "6.1", "name": "Насосная станция оборотной воды", "weight": 0.0, "depth": 2, "progress": 90.7, "days": 0, "children": [{"code": "6.1.1", "name": "Насосное оборудование", "weight": 5.99, "depth": 3, "progress": 95.0, "days": 5, "children": []}, {"code": "6.1.2", "name": "Градирня", "weight": 35.93, "depth": 3, "progress": 95.0, "days": 10, "children": []}, {"code": "6.1.3", "name": "Грузоподъёмное оборудование", "weight": 1.8, "depth": 3, "progress": 0.0, "days": 3, "children": []}, {"code": "6.1.4", "name": "Прочее мелкое оборудование", "weight": 1.2, "depth": 3, "progress": 100.0, "days": 0, "children": []}, {"code": "6.1.5", "name": "给排水Трубопровод", "weight": 53.89, "depth": 3, "progress": 90.0, "days": 5, "children": []}, {"code": "6.1.6", "name": "Запорная арматура водоснабжения", "weight": 1.2, "depth": 3, "progress": 95.0, "days": 5, "children": []}]}, {"code": "6.2", "name": "Компрессорная станция", "weight": 0.0, "depth": 2, "progress": 28.2, "days": 0, "children": [{"code": "6.2.1", "name": "Компрессорные установки", "weight": 30.61, "depth": 3, "progress": 90.0, "days": 8, "children": []}, {"code": "6.2.2", "name": "Грузоподъёмное оборудование", "weight": 3.06, "depth": 3, "progress": 0.0, "days": 5, "children": []}, {"code": "6.2.3", "name": "压缩空气Трубопровод安装", "weight": 61.22, "depth": 3, "progress": 1.0, "days": 30, "children": []}, {"code": "6.2.4", "name": "Монтаж арматуры сжатого воздуха", "weight": 5.1, "depth": 3, "progress": 0.0, "days": 10, "children": []}]}, {"code": "6.3", "name": "Центральный пульт управления", "weight": 0.0, "depth": 2, "progress": 0.0, "days": 0, "children": []}, {"code": "6.4", "name": "Электрощитовая насосной станции", "weight": 0.0, "depth": 2, "progress": 0.0, "days": 0, "children": []}, {"code": "6.5", "name": "Электрощитовая компрессорной", "weight": 0.0, "depth": 2, "progress": 0.0, "days": 0, "children": []}]}, {"code": "7", "name": "Наружные сети", "weight": 0.0, "depth": 1, "progress": 16.4, "days": 0, "children": [{"code": "7.1", "name": "Электрика", "weight": 0.0, "depth": 2, "progress": 35.0, "days": 0, "children": []}, {"code": "7.2", "name": "КИП", "weight": 0.0, "depth": 2, "progress": 0.0, "days": 0, "children": []}, {"code": "7.3", "name": "Автоматизация", "weight": 0.0, "depth": 2, "progress": 0.0, "days": 0, "children": []}, {"code": "7.4", "name": "Связь", "weight": 0.0, "depth": 2, "progress": 0.0, "days": 0, "children": []}, {"code": "7.5", "name": "Аспирация, отопление, вентиляция, кондиц.", "weight": 0.0, "depth": 2, "progress": 0.0, "days": 60, "children": []}, {"code": "7.6", "name": "Водоснабжение и канализация", "weight": 0.0, "depth": 2, "progress": 50.0, "days": 60, "children": []}, {"code": "7.7", "name": "Теплоснабжение", "weight": 0.0, "depth": 2, "progress": 0.0, "days": 60, "children": []}, {"code": "7.8", "name": "Газоснабжение", "weight": 0.0, "depth": 2, "progress": 25.0, "days": 50, "children": []}]}];;
+
+// 264 nodes
+
+function getColor(pct){
+  if(pct>=90)return'#6bcb77';
+  if(pct>=60)return'#38bdf8';
+  if(pct>=30)return'#fbbf24';
+  return'#f97316';
+}
+
+function renderNode(parent,nodes){
+  nodes.forEach(n=>{
+    var div=document.createElement('div');
+    div.className='node l'+n.depth;
+    var line=document.createElement('div');
+    line.className='line';
+    
+    var toggle=document.createElement('span');
+    toggle.className='toggle';
+    if(n.children.length>0){
+      toggle.textContent='▾';
+      toggle.onclick=function(){
+        var ch=div.querySelector('.children');
+        if(ch){
+          var c=ch.classList.contains('collapsed');
+          ch.classList.toggle('collapsed');
+          if(c){ch.style.removeProperty('max-height');}
+          else{ch.style.maxHeight='0';}
+          this.textContent=c?'▾':'▸';
+        }
+      };
+    }else{toggle.textContent='·';toggle.style.cursor='default'}
+    line.appendChild(toggle);
+    
+    var cd=document.createElement('span');
+    cd.className='code';cd.textContent=n.code;line.appendChild(cd);
+    
+    // progress bar
+    var pw=document.createElement('div');
+    pw.className='prog-wrap';
+    var pf=document.createElement('div');
+    pf.className='prog-fill';
+    pf.style.width=n.progress+'%';
+    pf.style.background=getColor(n.progress);
+    pw.appendChild(pf);
+    line.appendChild(pw);
+    
+    var pt=document.createElement('span');
+    pt.className='prog-text';
+    pt.textContent=n.progress+'%';
+    pt.style.color=getColor(n.progress);
+    line.appendChild(pt);
+    
+    var nm=document.createElement('span');
+    nm.className='name';nm.textContent=n.name;line.appendChild(nm);
+    
+    if(n.days>0){var dd=document.createElement('span');dd.className='days-badge';dd.textContent=n.days+'天';dd.title='расчётные чел-дни';line.appendChild(dd);}
+    
+    var spacer=document.createElement('span');
+    spacer.style.flex='1';line.appendChild(spacer);
+    
+    var b=document.createElement('span');
+    b.className='weight-badge';
+    b.textContent=(n.depth===1?'Общий вес ':'Вес ')+n.weight+'%';
+    line.appendChild(b);
+    
+    if(n.children.length>0){
+      var cnt=document.createElement('span');
+      cnt.className='count-badge';cnt.textContent='('+n.children.length+')';line.appendChild(cnt);
+    }
+    
+    div.appendChild(line);
+    
+    if(n.children.length>0){
+      var chDiv=document.createElement('div');
+      chDiv.className='children';
+      renderNode(chDiv,n.children);
+      div.appendChild(chDiv);
+      if(n.depth===1){
+        chDiv.classList.remove('collapsed');
+        setTimeout(function(){chDiv.style.removeProperty('max-height');},20);
+      }
+      if(n.depth===2){
+        chDiv.classList.add('collapsed');
+        chDiv.style.maxHeight='0';
+      }
+    }
+    parent.appendChild(div);
+  });
+}
+
+(function(){
+  // 顶层根节点
+  var root=[{code:'0',name:'Общий прогресс монтажа оборудования и КИП',weight:100,depth:0,progress:41.2,children:TREE}];
+  renderNode(document.getElementById('tree'),root);
+  // 根节点默认展开
+  setTimeout(function(){
+    var rc=document.querySelector('.l0>.children');
+    if(rc){rc.classList.remove('collapsed');rc.style.removeProperty('max-height');}
+  },30);
+})();
+
+// Развернуть/свернуть
+function expandTo(maxDepth){
+  var nodes=document.querySelectorAll('.node');
+  if(maxDepth===99){
+    nodes.forEach(function(nd){
+      var ch=nd.getElementsByClassName('children');
+      if(!ch.length)return;
+      ch[0].classList.add('collapsed');
+      ch[0].style.maxHeight='0';
+      var t=nd.getElementsByClassName('toggle');
+      if(t.length)t[0].textContent='▸';
+    });
+    return;
+  }
+  // Свернуть уровни выше целевого
+  nodes.forEach(function(nd){
+    var m=nd.className.match(/l(\d+)/);
+    if(!m)return;
+    if(parseInt(m[1])>=maxDepth){
+      var ch=nd.getElementsByClassName('children');
+      if(!ch.length)return;
+      ch[0].classList.add('collapsed');
+      ch[0].style.maxHeight='0';
+      var t=nd.getElementsByClassName('toggle');
+      if(t.length)t[0].textContent='▸';
+    }
+  });
+  // Развернуть по уровням
+  function doLevel(d){
+    if(d>=maxDepth)return;
+    nodes.forEach(function(nd){
+      var m=nd.className.match(/l(\d+)/);
+      if(!m||parseInt(m[1])!==d)return;
+      var ch=nd.getElementsByClassName('children');
+      if(!ch.length)return;
+      ch[0].classList.remove('collapsed');
+      ch[0].style.removeProperty('max-height');
+      var t=nd.getElementsByClassName('toggle');
+      if(t.length)t[0].textContent='▾';
+    });
+    setTimeout(function(){doLevel(d+1);},40);
+  }
+  doLevel(0);
+}
+</script>
+</div>
+
+<div class="tab-content" id="tab-roast">
+<div class="wrap">
+
+
+<!-- Hero -->
+<div class="hero">
+  <div class="gauge">
+    <svg viewBox="0 0 140 140">
+      <circle cx="70" cy="70" r="58" fill="none" stroke="rgba(148,163,184,.08)" stroke-width="10"/>
+      <circle cx="70" cy="70" r="58" fill="none" stroke="#ff6b6b" stroke-width="10" stroke-dasharray="364.4" stroke-dashoffset="39" stroke-linecap="round" transform="rotate(-90 70 70)"/>
+      <circle cx="70" cy="70" r="58" fill="none" stroke="rgba(255,107,107,.4)" stroke-width="10" stroke-dasharray="364.4" stroke-dashoffset="39" transform="rotate(-90 70 70)" filter="blur(3px)"/>
+    </svg>
+    <div class="gauge-num"><div class="gauge-pct">89.3<span style="font-size:16px">%</span></div><div class="gauge-sub">Завершено</div></div>
+  </div>
+  <div class="hero-info">
+    <h3>Обжиговая машина 1101PT-TG01</h3>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="n" style="color:#6bcb77">26</div><div class="l">✅ 100% готово</div></div>
+      <div class="hero-stat"><div class="n" style="color:#fbbf24">5</div><div class="l">🟡 В работе</div></div>
+      <div class="hero-stat"><div class="n" style="color:#f97316">8</div><div class="l">🔴 Не начато</div></div>
+      <div class="hero-stat"><div class="n" style="color:#94a3b8">34.4%</div><div class="l">Вес最高设备 · Трубопровод</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Section cards -->
+<div class="section-grid" id="sections"></div>
+
+<div class="bottom-legend">
+  <span><span class="dot" style="background:#6bcb77"></span> 100% готово</span>
+  <span><span class="dot" style="background:#fbbf24"></span> В работе</span>
+  <span><span class="dot" style="background:#f97316"></span> Не начато</span>
+  <span>| Вес = % от текущего уровня</span>
+</div>
+</div>
+</div>
+
+<script>
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active');});
+  var btns=document.querySelectorAll('.tab-btn');
+  btns.forEach(function(b){if(b.getAttribute('onclick').indexOf(tab)>-1)b.classList.add('active');});
+  var el=document.getElementById('tab-'+tab);
+  if(el){el.classList.add('active');}
+  if(tab==='dash'){setTimeout(function(){window.dispatchEvent(new Event('resize'));},100);}
+  if(tab==='roast'){setTimeout(initRoastSections,50);}
+}
+
+// Инициализация вкладки обжига - defined here to avoid scoping issues
+var roastSectionsReady=false;
+function initRoastSections(){
+  if(roastSectionsReady)return;
+  var sec=document.getElementById('sections');
+  if(!sec)return;
+var items=[
+  {code:"3.1.2.1", eqp:"1101PT-TG01-MP01", name:"Главный привод", w:0.51, pct:100, sect:"Головной привод"},
+  {code:"3.1.2.2", eqp:"1101PT-TG01-PAL01~234", name:"Паллеты", w:1.53, pct:100, sect:"Корпус"},
+  {code:"3.1.2.3", eqp:"1101PT-TG01-SEL01", name:"落棒Уплотнения装置", w:1.53, pct:100, sect:"Уплотнения"},
+  {code:"3.1.2.4", eqp:"1101PT-TG01-HL01", name:"Устройство подовой и боковой постели", w:0.51, pct:85, sect:"Загрузка"},
+  {code:"3.1.2.5", eqp:"1101PT-TG01-QV01~02", name:"Секторный клапан жёлоба подовой постели", w:0.13, pct:100, sect:"Загрузка"},
+  {code:"3.1.2.6", eqp:"1101PT-TG01-QV03", name:"Секторный клапан бункера подовой постели", w:0.06, pct:0, sect:"Загрузка"},
+  {code:"3.1.2.7", eqp:"1101PT-TG01-QV04~05", name:"Секторный клапан боковой постели", w:0.08, pct:100, sect:"Загрузка"},
+  {code:"3.1.2.8", eqp:"1101PT-TG01-QV06", name:"Секторный клапан аварийного бункера", w:0.08, pct:0, sect:"Загрузка"},
+  {code:"3.1.2.9", eqp:"1101PT-TG01-FM04", name:"Загрузка骨架", w:1.53, pct:30, sect:"Загрузка"},
+  {code:"3.1.2.10", eqp:"1101PT-TG01-FM01", name:"Каркас приводных устройств", w:2.29, pct:100, sect:"Головной привод"},
+  {code:"3.1.2.11", eqp:"1101PT-TG01-CUR01", name:"Головная часть弯道装配", w:0.76, pct:100, sect:"Головная часть"},
+  {code:"3.1.2.12", eqp:"1101PT-TG01-W01", name:"Головная часть星轮装配", w:1.22, pct:100, sect:"Головная часть"},
+  {code:"3.1.2.13", eqp:"1101PT-TG01-AX01", name:"Бункер пыли №1", w:0.19, pct:100, sect:"Головная часть"},
+  {code:"3.1.2.14", eqp:"1101PT-TG01-AX02", name:"Бункер пыли №2", w:0.19, pct:100, sect:"Головная часть"},
+  {code:"3.1.2.15", eqp:"1101PT-TG01-HH01", name:"Головная частьУплотнения罩", w:0.76, pct:0, sect:"Уплотнения"},
+  {code:"3.1.2.16", eqp:"1101PT-TG01-FM02", name:"Каркас средней части", w:15.27, pct:100, sect:"Корпус"},
+  {code:"3.1.2.17", eqp:"1101PT-TG01-TR01", name:"Рельсовый путь в сборе", w:5.73, pct:100, sect:"Корпус"},
+  {code:"3.1.2.18", eqp:"1101PT-TG01-WX01", name:"Воздушная камера в сборе", w:5.73, pct:100, sect:"Корпус"},
+  {code:"3.1.2.19", eqp:"1101PT-TG01-SEL02", name:"滑道及Уплотнения装配", w:0.81, pct:100, sect:"Уплотнения"},
+  {code:"3.1.2.20", eqp:"1101PT-TG01-FM03", name:"Хвостовая часть骨架", w:1.91, pct:100, sect:"Хвостовая часть"},
+  {code:"3.1.2.21", eqp:"1101PT-TG01-FM04", name:"Хвостовая часть移动架", w:1.91, pct:100, sect:"Хвостовая часть"},
+  {code:"3.1.2.22", eqp:"1101PT-TG01-FM04-YY", name:"Гидравлические агрегаты", w:0.19, pct:0, sect:"Хвостовая часть"},
+  {code:"3.1.2.23", eqp:"1101PT-TG01-CUR02", name:"Хвостовая часть弯道", w:1.53, pct:100, sect:"Хвостовая часть"},
+  {code:"3.1.2.24", eqp:"1101PT-TG01-W02", name:"Хвостовая часть星轮装配", w:1.53, pct:100, sect:"Хвостовая часть"},
+  {code:"3.1.2.25", eqp:"1101PT-TG01-DN01", name:"Разгрузочный бункер", w:1.53, pct:100, sect:"Хвостовая часть"},
+  {code:"3.1.2.26", eqp:"1101PT-TG01-QV-07~08", name:"Секторный затвор разгрузки", w:0.15, pct:100, sect:"Хвостовая часть"},
+  {code:"3.1.2.27", eqp:"1101PT-TG01-HT01", name:"Хвостовая частьУплотнения罩", w:0.32, pct:0, sect:"Уплотнения"},
+  {code:"3.1.2.28", eqp:"1101PT-TG01-DX01", name:"Измерительные приборы под паллеты", w:0.08, pct:0, sect:"Хвостовая часть"},
+  {code:"3.1.2.29", eqp:"1101PT-TG01-DR01", name:"Устройство уборки спекшейся руды", w:0.13, pct:100, sect:"Хвостовая часть"},
+  {code:"3.1.2.30", eqp:"1101PT-TG01-PLA01", name:"Платформа", w:1.53, pct:75, sect:"Корпус"},
+  {code:"3.1.2.31", eqp:"1101PT-TG01-FM05", name:"Рама корпуса обжиговой машины", w:1.91, pct:100, sect:"Корпус"},
+  {code:"3.1.2.32", eqp:"1101PT-TG01-IH01-01", name:"Верхний корпус в сборе", w:1.53, pct:100, sect:"Корпус"},
+  {code:"3.1.2.33", eqp:"1101PT-TG01-IH01-02", name:"Боковая стена в сборе", w:3.82, pct:100, sect:"Корпус"},
+  {code:"3.1.2.34", eqp:"1101PT-TG01-IH01-03", name:"Трубопровод", w:34.37, pct:90, sect:"Трубопровод"},
+  {code:"3.1.2.35", eqp:"1101PT-TG01-IH01-04", name:"Пылезащитный корпус сушки", w:1.02, pct:75, sect:"Корпус"},
+  {code:"3.1.2.36", eqp:"1101PT-TG01-IH01-05", name:"Бункер для сбора пыли", w:0.71, pct:0, sect:"Трубопровод"},
+  {code:"3.1.2.37", eqp:"1101PT-TG01-IH01-06", name:"Пылезащитный корпус охлаждения", w:1.02, pct:75, sect:"Корпус"},
+  {code:"3.1.2.38", eqp:"1101PT-TG01-IH01-07", name:"Кронштейн в сборе", w:2.86, pct:100, sect:"Корпус"},
+  {code:"3.1.2.39", eqp:"1101PT-BU01~34", name:"Горелки и блок регулирующих клапанов", w:3.05, pct:0, sect:"Трубопровод"},
+];
+
+// Sort: incomplete first, then by weight desc
+items.sort(function(a,b){
+  if(a.pct===100&&b.pct!==100)return 1;
+  if(b.pct===100&&a.pct!==100)return -1;
+  return b.w-a.w;
+});
+
+// Group by section
+var sections={};
+items.forEach(function(item){
+  if(!sections[item.sect]) sections[item.sect]=[];
+  sections[item.sect].push(item);
+});
+
+// Section order with icons
+var sectMeta={
+  "Корпус":{icon:"⚙️",color:"#6bcb77"},
+  "Трубопровод":{icon:"🔧",color:"#38bdf8"},
+  "Головная часть":{icon:"🔼",color:"#fbbf24"},
+  "Хвостовая часть":{icon:"🔽",color:"#a78bfa"},
+  "Головной привод":{icon:"🔗",color:"#fb923c"},
+  "Уплотнения":{icon:"🔒",color:"#22d3ee"},
+  "Загрузка":{icon:"🧱",color:"#f97316"}
+};
+var sectOrder=["Корпус","Трубопровод","Головная часть","Хвостовая часть","Головной привод","Уплотнения","Загрузка"];
+
+function getColor(pct){
+  if(pct===100)return'#6bcb77';
+  if(pct>=70)return'#38bdf8';
+  if(pct>=30)return'#fbbf24';
+  return'#f97316';
+}
+
+var html='';
+sectOrder.forEach(function(name){
+  if(!sections[name])return;
+  var list=sections[name];
+  var meta=sectMeta[name]||{icon:"📦",color:"#94a3b8"};
+  var totalW=list.reduce(function(s,i){return s+i.w;},0);
+  var wp=list.reduce(function(s,i){return s+i.w*i.pct;},0);
+  var pct=Math.round(wp/totalW);
+  var doneCount=list.filter(function(i){return i.pct===100;}).length;
+  
+  html+='<div class="sect-card">';
+  html+='<div class="sect-header">';
+  html+='<span class="sect-title"><span class="sect-icon" style="background:'+meta.color+'22;color:'+meta.color+'">'+meta.icon+'</span>'+name+'<span style="font-size:10px;color:#64748b;font-weight:400">'+list.length+' поз. · '+totalW.toFixed(1)+'%</span></span>';
+  html+='<div class="sect-progress"><div class="sect-bar"><div class="sect-bar-fill" style="width:'+pct+'%;background:'+getColor(pct)+'"></div></div><span class="sect-pct" style="color:'+getColor(pct)+'">'+pct+'%</span></div>';
+  html+='</div>';
+  
+  list.forEach(function(item){
+    var cls=item.pct===100?' done-row':'';
+    html+='<div class="item-row'+cls+'">';
+    html+='<span style="font-size:10px;color:#94a3b8;min-width:56px">'+item.code+'</span>';html+='<span style="font-size:10px;color:#94a3b8;min-width:136px;font-family:monospace">'+item.eqp+'</span>';
+    html+='<span class="item-name">'+item.name+'</span>';
+    html+='<div class="item-mini-bar"><div class="item-mini-fill" style="width:'+item.pct+'%;background:'+getColor(item.pct)+'"></div></div>';
+    html+='<span class="item-pct" style="color:'+getColor(item.pct)+'">'+item.pct+'%</span>';
+    html+='<span class="item-w">'+item.w+'%</span>';
+    html+='</div>';
+  });
+  html+='</div>';
+});
+
+document.getElementById('sections').innerHTML=html;
+  roastSectionsReady=true;
+}
+// Инициализация
+setTimeout(initRoastSections,300);
+</script>
+</body>
+</html>
