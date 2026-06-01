@@ -112,12 +112,17 @@ h2{text-align:center;font-weight:700;font-size:20px;margin-bottom:2px}
 .bottom-legend .dot{width:8px;height:8px;border-radius:2px}
 
 @keyframes shimmer{0%{background-position:100% 0}100%{background-position:0% 0}}
+
+.lang-switch{position:fixed;top:14px;right:20px;z-index:200;padding:6px 14px;border-radius:8px;border:1px solid rgba(148,163,184,.2);background:rgba(20,30,50,.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#94a3b8;cursor:pointer;font-size:12px;font-weight:600;transition:all .2s;text-decoration:none}
+.lang-switch:hover{background:rgba(30,41,59,.95);color:#e2e8f0;border-color:rgba(56,189,248,.3)}
+
 </style>
 </head>
 <body>
 <h2>北钢球团项目 · 进度看板</h2>
 <div class="sub">设备与电仪专业安装 · 2026/5/29 → 2027/1/1</div>
 
+<a href="ru.html" class="lang-switch" title="Русский">🇷🇺 РУС</a>
 <div class="tab-nav">
   <button class="tab-btn active" onclick="switchTab('dash')">📊 图表看板</button>
   <button class="tab-btn" onclick="switchTab('wbs')">🌲 WBS 目录树</button>
@@ -177,6 +182,10 @@ h2{text-align:center;font-weight:700;font-size:20px;margin-bottom:2px}
 
 <style>
 @keyframes shimmer{0%{background-position:100% 0}100%{background-position:0% 0}}
+
+.lang-switch{position:fixed;top:14px;right:20px;z-index:200;padding:6px 14px;border-radius:8px;border:1px solid rgba(148,163,184,.2);background:rgba(20,30,50,.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#94a3b8;cursor:pointer;font-size:12px;font-weight:600;transition:all .2s;text-decoration:none}
+.lang-switch:hover{background:rgba(30,41,59,.95);color:#e2e8f0;border-color:rgba(56,189,248,.3)}
+
 </style>
 
 <!-- 顶部双图：条形图 + 饼图 -->
@@ -771,7 +780,7 @@ function expandTo(maxDepth){
       <div class="hero-stat"><div class="n" style="color:#6bcb77">26</div><div class="l">✅ 已100%完成</div></div>
       <div class="hero-stat"><div class="n" style="color:#fbbf24">5</div><div class="l">🟡 进行中</div></div>
       <div class="hero-stat"><div class="n" style="color:#f97316">8</div><div class="l">🔴 未完/未开工</div></div>
-      <div class="hero-stat"><div class="n" style="color:#94a3b8">34.4%</div><div class="l">最大件 · 管道</div></div>
+      <div class="hero-stat"><div class="n" style="color:#94a3b8">34.4%</div><div class="l">权重最高设备 · 管道</div></div>
     </div>
   </div>
 </div>
