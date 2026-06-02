@@ -52,20 +52,14 @@ h2{text-align:center;font-weight:700;font-size:20px;margin-bottom:4px}
 .stat-card .stat-n{font-size:22px;font-weight:700;background:linear-gradient(135deg,#38bdf8,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .stat-card .stat-l{font-size:10px;color:#94a3b8;margin-top:2px}
 
-/* Timeline slider */
-.timeline{margin:0 auto 20px;max-width:800px;padding:0 20px}
-.timeline-track{position:relative;height:40px;display:flex;align-items:center}
-.timeline-bg{position:absolute;left:0;right:0;height:4px;background:rgba(148,163,184,.12);border-radius:2px}
-.timeline-range{position:absolute;height:4px;background:linear-gradient(90deg,#38bdf8,#a78bfa);border-radius:2px;transition:left .2s,right .2s}
-.timeline-handle{position:absolute;top:50%;width:16px;height:16px;background:#1e293b;border:2px solid #38bdf8;border-radius:50%;transform:translate(-50%,-50%);cursor:grab;z-index:2;transition:box-shadow .2s}
-.timeline-handle:hover{box-shadow:0 0 12px rgba(56,189,248,.4)}
-.timeline-handle:active{cursor:grabbing}
-.timeline-handle::after{position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:9px;color:#94a3b8;white-space:nowrap}
-#tlFrom::after{content:"从"}
-#tlTo::after{content:"至"}
-.timeline-range-label{text-align:center;font-size:11px;color:#e2e8f0;margin-bottom:4px;font-weight:600}
-.timeline-labels{display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;margin-top:6px}
-.timeline-labels .active{color:#38bdf8;font-weight:600}
+/* Date range filter */
+.date-filter{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px}
+.date-filter select{padding:5px 10px;border-radius:8px;border:1px solid rgba(148,163,184,.15);background:rgba(30,41,59,.7);color:#e2e8f0;font-size:12px;cursor:pointer;outline:none}
+.date-filter select:focus{border-color:#38bdf8}
+.date-filter .df-label{font-size:12px;color:#94a3b8}
+.date-filter .df-sep{color:#64748b;font-size:12px;margin:0 2px}
+.date-filter .df-clear{font-size:11px;color:#94a3b8;cursor:pointer;text-decoration:underline;background:none;border:none}
+.date-filter .df-clear:hover{color:#38bdf8}
 
 /* Lightbox filmstrip */
 .lb-strip{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:6px;max-width:90vw;overflow-x:auto;padding:4px}
@@ -97,10 +91,14 @@ h2{text-align:center;font-weight:700;font-size:20px;margin-bottom:4px}
 </div>
 
 <div class="stats-bar" id="statsBar"></div>
-<div class="timeline" id="timelineBar">
-  <div class="timeline-range-label" id="tlRangeLabel"></div>
-</div>
 <div class="filter-bar" id="filterBar"></div>
+<div class="date-filter">
+  <span class="df-label">日期筛选：</span>
+  <select id="dfFrom"><option value="">全部日期</option></select>
+  <span class="df-sep">→</span>
+  <select id="dfTo"><option value="">全部日期</option></select>
+  <button class="df-clear" onclick="clearDateFilter()">清除</button>
+</div>
 <div class="gallery" id="gallery"></div>
 </div>
 
@@ -245,133 +243,32 @@ document.addEventListener("keydown",function(e){
 buildFilter();
 applyFilter("全部");
 
-// Timeline - discrete snap-to-date (rewritten with Pointer Events)
+// Date filter - simple dropdown select
 var curDateFrom="",curDateTo="";
-var TICK_POS={};  // exposed for resize
 function dateToNum(d){var p=d.split("-");return parseInt(p[0])*10000+parseInt(p[1])*100+parseInt(p[2])}
-function buildTimeline(){
-  if(DATES.length<2)return;
-  var c=document.getElementById("timelineBar");
-  c.innerHTML="";
-  var tr=document.createElement("div");tr.className="timeline-track";
 
-  var bg=document.createElement("div");bg.className="timeline-bg";tr.appendChild(bg);
-  var range=document.createElement("div");range.className="timeline-range";range.id="tlRange";tr.appendChild(range);
-
-  var labels=document.createElement("div");labels.className="timeline-labels";labels.id="tlLabels";
-
-  // Equal spacing + build TICK_POS
-  TICK_POS={};
-  DATES.forEach(function(d,i){
-    var pos=(i/(DATES.length-1)*100).toFixed(1);
-    TICK_POS[d]=parseFloat(pos);
-    var tick=document.createElement("span");
-    tick.className="tl-label";tick.dataset.d=d;
-    tick.textContent=d;
-    tick.style.position="absolute";tick.style.left=pos+"%";
-    tick.style.transform="translateX(-50%)";
-    labels.appendChild(tick);
+function initDateFilter(){
+  var from=document.getElementById("dfFrom"), to=document.getElementById("dfTo");
+  var sorted=DATES.slice().sort(function(a,b){return a.localeCompare(b)});
+  sorted.forEach(function(d){
+    from.innerHTML+='<option value="'+d+'">'+d+'</option>';
+    to.innerHTML+='<option value="'+d+'">'+d+'</option>';
   });
-  tr.appendChild(labels);
-
-  var hFrom=document.createElement("div");hFrom.className="timeline-handle";hFrom.id="tlFrom";hFrom.style.left="0%";
-  var hTo=document.createElement("div");hTo.className="timeline-handle";hTo.id="tlTo";hTo.style.left="100%";
-
-  // ---- Pointer Events drag (no stuck handle) ----
-  function setupDrag(hdl){
-    var dragging=false, sx=0, sl=0;
-
-    hdl.addEventListener("pointerdown", function(e){
-      e.preventDefault();e.stopPropagation();
-      dragging=true;
-      sx=e.clientX;
-      sl=parseFloat(hdl.style.left);
-      hdl.setPointerCapture(e.pointerId);
-      document.body.style.cursor="grabbing";
-    });
-
-    hdl.addEventListener("pointermove", function(e){
-      if(!dragging)return;
-      var dx=(e.clientX-sx)/tr.offsetWidth*100;
-      hdl.style.left=Math.max(0,Math.min(100,sl+dx)).toFixed(1)+"%";
-      updateRangeVisual();
-    });
-
-    hdl.addEventListener("pointerup", function(e){
-      if(!dragging)return;
-      dragging=false;
-      hdl.releasePointerCapture(e.pointerId);
-      snap(hdl);
-      updateRange();
-      document.body.style.cursor="";
-    });
-
-    // Safety: if pointer cancels (e.g. system interrupt)
-    hdl.addEventListener("pointercancel", function(e){
-      if(!dragging)return;
-      dragging=false;
-      try{hdl.releasePointerCapture(e.pointerId)}catch(_){}
-      snap(hdl);
-      updateRange();
-      document.body.style.cursor="";
-    });
-  }
-
-  function snap(hdl){
-    var pct=parseFloat(hdl.style.left);
-    var best=null,bestDist=Infinity;
-    Object.entries(TICK_POS).forEach(function(entry){
-      var dist=Math.abs(entry[1]-pct);
-      if(dist<bestDist){bestDist=dist;best=entry[0]}
-    });
-    if(best!=null)hdl.style.left=TICK_POS[best].toFixed(1)+"%";
-  }
-
-  function getRangeDates(){
-    var l=parseFloat(hFrom.style.left),r=parseFloat(hTo.style.left);
-    var lo=Math.min(l,r),hi=Math.max(l,r);
-    // fD = date at or just after lo (earliest selected date)
-    // tD = date at or just before hi (latest selected date)
-    var fD=null,tD=null,fDPos=Infinity,tDPos=-Infinity;
-    Object.entries(TICK_POS).forEach(function(entry){
-      var k=entry[0],pos=entry[1];
-      if(pos>=lo && pos<fDPos){fD=k;fDPos=pos}
-      if(pos<=hi && pos>tDPos){tD=k;tDPos=pos}
-    });
-    return [fD||DATES[0], tD||DATES[DATES.length-1]];
-  }
-
-  function updateRangeVisual(){
-    var l=parseFloat(hFrom.style.left),r=parseFloat(hTo.style.left);
-    range.style.left=Math.min(l,r).toFixed(1)+"%";
-    range.style.right=(100-Math.max(l,r)).toFixed(1)+"%";
-    var dts=getRangeDates();
-    var a=dateToNum(dts[0]),b=dateToNum(dts[1]);
-    curDateFrom=a<=b?dts[0]:dts[1];
-    curDateTo=a<=b?dts[1]:dts[0];
-    document.getElementById("tlRangeLabel").textContent=curDateFrom+" → "+curDateTo;
-    document.querySelectorAll(".tl-label").forEach(function(s){
-      var n=dateToNum(s.dataset.d);
-      s.classList.toggle("active",n>=dateToNum(curDateFrom)&&n<=dateToNum(curDateTo));
-    });
-  }
-
-  function updateRange(){
-    updateRangeVisual();
-    applyFilter(curF);
-  }
-
-  setupDrag(hFrom);setupDrag(hTo);
-  tr.appendChild(hFrom);tr.appendChild(hTo);
-  c.appendChild(tr);
-
-  // Init: slider spans full range, from oldest to newest
-  curDateFrom=DATES[DATES.length-1];curDateTo=DATES[0];
-  document.getElementById("tlRangeLabel").textContent=curDateFrom+" → "+curDateTo;
-  document.querySelectorAll(".tl-label").forEach(function(s){s.classList.add("active")});
-  updateRange();
+  from.value=sorted[0]; to.value=sorted[sorted.length-1];
+  curDateFrom=sorted[0]; curDateTo=sorted[sorted.length-1];
+  from.onchange=function(){curDateFrom=this.value;applyFilter(curF)};
+  to.onchange=function(){curDateTo=this.value;applyFilter(curF)};
+  applyFilter(curF);
 }
-buildTimeline();
+
+function clearDateFilter(){
+  curDateFrom="";curDateTo="";
+  document.getElementById("dfFrom").value="";
+  document.getElementById("dfTo").value="";
+  applyFilter(curF);
+}
+
+initDateFilter();
 
 // Carousel
 var carSlides=[],carIdx=0,carTimer=null;
