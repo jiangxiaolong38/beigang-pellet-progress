@@ -294,7 +294,7 @@ function buildTimeline(){
       if(!dragging)return;
       var dx=(e.clientX-sx)/tr.offsetWidth*100;
       hdl.style.left=Math.max(0,Math.min(100,sl+dx)).toFixed(1)+"%";
-      updateRange();
+      updateRangeVisual();
     });
 
     hdl.addEventListener("pointerup", function(e){
@@ -341,17 +341,23 @@ function buildTimeline(){
     return [fD||DATES[0], tD||DATES[DATES.length-1]];
   }
 
-  function updateRange(){
+  function updateRangeVisual(){
     var l=parseFloat(hFrom.style.left),r=parseFloat(hTo.style.left);
     range.style.left=Math.min(l,r).toFixed(1)+"%";
     range.style.right=(100-Math.max(l,r)).toFixed(1)+"%";
     var dts=getRangeDates();
-    curDateFrom=dts[0];curDateTo=dts[1];
+    var a=dateToNum(dts[0]),b=dateToNum(dts[1]);
+    curDateFrom=a<=b?dts[0]:dts[1];
+    curDateTo=a<=b?dts[1]:dts[0];
     document.getElementById("tlRangeLabel").textContent=curDateFrom+" → "+curDateTo;
     document.querySelectorAll(".tl-label").forEach(function(s){
       var n=dateToNum(s.dataset.d);
       s.classList.toggle("active",n>=dateToNum(curDateFrom)&&n<=dateToNum(curDateTo));
     });
+  }
+
+  function updateRange(){
+    updateRangeVisual();
     applyFilter(curF);
   }
 
@@ -359,8 +365,8 @@ function buildTimeline(){
   tr.appendChild(hFrom);tr.appendChild(hTo);
   c.appendChild(tr);
 
-  // Init range
-  curDateFrom=DATES[0];curDateTo=DATES[DATES.length-1];
+  // Init: slider spans full range, from oldest to newest
+  curDateFrom=DATES[DATES.length-1];curDateTo=DATES[0];
   document.getElementById("tlRangeLabel").textContent=curDateFrom+" → "+curDateTo;
   document.querySelectorAll(".tl-label").forEach(function(s){s.classList.add("active")});
   updateRange();
